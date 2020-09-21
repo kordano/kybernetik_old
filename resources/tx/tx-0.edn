@@ -1,0 +1,25 @@
+[;; enums
+ {:db/ident :role/admin}
+ {:db/ident :role/manager}
+ {:db/ident :role/employee}
+ {:db/ident :role/contractor}
+
+ ;; user
+ {:db/ident :user/name
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity}
+ {:db/ident :user/firstname
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :user/lastname
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :user/role
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :user/password
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+
+ ]

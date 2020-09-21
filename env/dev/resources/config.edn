@@ -1,0 +1,5 @@
+{:db {:store {:backend :mem
+              :id "kybernetik"}
+      :keep-history? true
+      :schema-flexibility :write
+      :name "kybernetik"}}
