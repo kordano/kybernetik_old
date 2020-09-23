@@ -2,6 +2,7 @@
   "Userspace functions you can run by default in your local REPL."
   (:require
    [kybernetik.config :refer [env]]
+   [kybernetik.db.core :refer [conn]]
     [clojure.pprint]
     [clojure.spec.alpha :as s]
     [expound.alpha :as expound]

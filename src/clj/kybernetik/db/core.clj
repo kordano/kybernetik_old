@@ -21,7 +21,7 @@
 
 
 (defn get-user [id]
-  (d/pull @conn '[*] id))
+  (d/pull @conn '[* {:user/role [:db/ident]}] id))
 
 (defn create-user [new-user]
   (let [{:keys [tempids]} (d/transact conn [(assoc new-user :db/id -1)])]
@@ -38,3 +38,9 @@
          :where
          [?e :user/name _]]
        @conn))
+
+(defn list-roles []
+  (d/q '[:find ?r
+         :where
+         [?e :db/ident ?]])
+  )

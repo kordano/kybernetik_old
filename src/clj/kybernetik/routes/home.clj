@@ -8,10 +8,10 @@
    [ring.util.http-response :as response]))
 
 (defn home-page [request]
-  (layout/render request "home.html" {:docs (-> "docs/docs.md" io/resource slurp)}))
+  (layout/render-template request "home.html" {:docs (-> "docs/docs.md" io/resource slurp)}))
 
 (defn about-page [request]
-  (layout/render request "about.html"))
+  (layout/render-template request "about.html"))
 
 (defn home-routes []
   [""
@@ -19,5 +19,11 @@
                  middleware/wrap-formats]}
    ["/" {:get home-page}]
    ["/about" {:get about-page}]
-   ["/users" {:get kcu/index}]])
+   ["/users" {:get kcu/index
+              :post kcu/create}]
+   ["/users/new" {:get kcu/new-user}]
+   ["/users/:id/show" {:get kcu/show }]
+   ["/users/:id/edit" {:get kcu/edit }]
+   ["/users/:id/delete" {:delete kcu/delete}]
+   ["/users/:id/patch" {:post kcu/patch}]])
 
