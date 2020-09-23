@@ -93,14 +93,7 @@
            [:div.buttons
             [:a.button.is-info {:href (str model "s/" id "/show")  } "show"]
             [:a.button.is-warning {:href (str model "s/" id "/edit")} "edit"]
-            (hiccup.form/form-to
-             [:post (str "/" model "s/" id "/patch")]
-             (anti-forgery-field)
-             [:input.input.is-hidden {:id "_method"
-                                      :name "_method"
-                                      :value "delete"}]
-             [:input.button.is-danger {:type :submit :value "delete"}])
-            ]])])]]
+            [:a.button.is-danger {:href (str model "s/" id "/delete")} "delete"]]])])]]
    [:a.button.is-link {:href (str model "s/new")} (str "New " (s/capitalize model))]])
 
 (defn new [{:keys [attrs model]}]
@@ -137,6 +130,25 @@
         [:strong (name k)] " "
         v])]]])
 
+(defn delete [{:keys [model entity id]}]
+  [:div.content
+   [:a.button.is-link {:href (str "/" model "s")} "Back"]
+   [:h2.title (str "Show " (s/capitalize model))]
+   [:div.content
+    [:ul
+     (for [[k v] entity]
+       [:li
+        [:strong (name k)] " "
+        v])]
+    (hiccup.form/form-to
+     [:post (str "/" model "s/" id "/patch")]
+     (anti-forgery-field)
+     [:input.input.is-hidden {:id "_method"
+                              :name "_method"
+                              :value "delete"}]
+     [:input.button.is-danger {:type :submit
+                               :value "delete"}])]])
+
 (defn edit [{:keys [model attrs values id]}]
   [:div.content
    [:a.button.is-link {:href (str "/" model "s")} "Back"]
@@ -164,6 +176,9 @@
                            :placeholder placeholder}])]))
      [:input.button.is-success {:type :submit :value "Save"}])]])
 
+(defn welcome []
+  [:div.content
+   [:h2 "Welcome user"]])
 
 (defn render
   "renders the HTML template located relative to resources/html"

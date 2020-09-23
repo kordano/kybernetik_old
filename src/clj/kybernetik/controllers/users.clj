@@ -107,6 +107,20 @@
     (catch Exception e
       (assoc (rur/redirect "/users") :flash "User could not be deleted."))))
 
+(defn delete-question [{{:keys [id]} :path-params flash :flash :as request}]
+  (layout/render
+   request
+   (layout/delete
+    {:model "user"
+     :id id
+     :entity (-> (db/get-user (Integer/parseInt id))
+                 (update-in [:user/role] :db/ident))})
+   (merge
+    {:title "Delete User"
+     :page (str "users/" id "/delete")}
+    {:message {:text "Do you really want to delete the following User?"
+               :type :error}})))
+
 
 (defn patch [{{:keys [id]} :path-params
               {:keys [_method name firstname lastname role]} :params
