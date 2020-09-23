@@ -1,7 +1,8 @@
 (ns kybernetik.db.core
   (:require [datahike.api :as d]
             [kybernetik.config :refer [env]]
-            [mount.core :as mount]))
+            [mount.core :as mount]
+            [clojure.string :as s]))
 
 (defn init-db [cfg]
   (let [tx-0 (-> "resources/tx/tx-0.edn" slurp read-string)]
@@ -19,12 +20,33 @@
   (d/delete-database (:db env))
   (mount/start #'kybernetik.db.core/conn))
 
+(defn- create-ref [strng model-ref]
+  (let [letters (s/split strng  #"\s")]
+    (loop [reference (if (< (count letters) 2)
+                       (-> (str (first strng) (last strng))
+                           (s/upper-case))
+                       (->> letters
+                            (map (comp first s/upper-case))
+                            (apply str)))
+           i 1]
+      (if-not (d/entity @conn [model-ref reference])
+        reference
+        (recur (if (< (count letters) 2)
+                 (-> (str (first strng) (last strng))
+                     (s/upper-case)
+                     (str i))
+                 (str (->> letters
+                           (map (comp first s/upper-case))
+                           (apply str)) i))
+               (inc i))))))
 
 (defn get-user [id]
   (d/pull @conn '[* {:user/role [:db/ident]}] id))
 
-(defn create-user [new-user]
-  (let [{:keys [tempids]} (d/transact conn [(assoc new-user :db/id -1)])]
+(defn create-user [{:keys [:user/firstname :user/lastname] :as new-user}]
+  (let [{:keys [tempids]} (d/transact conn [(assoc new-user
+                                                   :db/id -1
+                                                   :user/ref (create-ref (str firstname " " lastname) :user/ref))])]
     (get tempids -1)))
 
 (defn update-user [updated-user]
@@ -42,5 +64,26 @@
 (defn list-roles []
   (d/q '[:find ?r
          :where
-         [?e :db/ident ?]])
-  )
+         [?e :db/ident ?]]))
+
+(defn get-project [id]
+  (d/pull @conn '[* {:project/supervisor [:db/id :user/ref]
+                     :project/members [:db/id :user/ref]}] id))
+
+(defn create-project [{:keys [project/title] :as new-project}]
+  (let [{:keys [tempids]} (d/transact conn [(assoc new-project
+                                                   :db/id -1
+                                                   :project/ref (create-ref title :project/ref))])]
+    (get tempids -1)))
+
+(defn update-project [{:keys [project/title] :as updated-project}]
+  (d/transact conn [(merge updated-project
+                           (when title
+                             {:project/ref (create-ref title :project/ref)}))]))
+
+(defn list-projects []
+  (d/q '[:find [(pull ?e [* {:project/supervisor [:db/id :user/ref]
+                             :project/members [:db/id :user/ref]}]) ...]
+         :where
+         [?e :project/ref _]]
+       @conn))

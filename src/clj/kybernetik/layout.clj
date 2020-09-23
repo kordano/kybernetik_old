@@ -41,6 +41,9 @@
      [:a.navbar-item {:href "/"} "kybernetik"]]
     [:div.navbar-menu
      [:div.navbar-start
+      [:a {:href "/projects"
+           :class (str "navbar-item" (if (= page "projects") " is-active" ""))}
+       "Projects"]
       [:a {:href "/users"
            :class (str "navbar-item" (if (= page "users") " is-active" ""))}
        "Users"]]]]])
@@ -87,7 +90,14 @@
      (for [row rows]
        [:tr
         (for [r row]
-          [:td r])
+          (if (vector? r)
+            (if (vector? (first r))
+              [:td
+               (for [[ref text] r]
+                 [:a {:href ref} text])]
+              (let [[ref text] r]
+                [:td [:a {:href ref} text]]))
+            [:td r]))
         (let [id (str (first row))]
           [:td
            [:div.buttons
@@ -109,10 +119,24 @@
          [:div.field
           [:label.label {:for attr} k]
           (case type
+            :multi-selection [:div.select.is-mulitple
+                              {:style "margin-bottom: 10rem !important;"}
+                              [:select {:id attr
+                                        :size "5"
+
+                                        :multiple true
+                                        :name attr}
+                               (for [[oid oname] placeholder]
+                                 [:option {:value (if (keyword oid)
+                                                    (name oid)
+                                                    oid)}
+                                  (name oname)])]]
             :selection [:div.select [:select {:id attr
                                               :name attr}
-                                     (for [o placeholder]
-                                       [:option {:value (name o)} (name o)])]]
+                                     (for [[oid oname] placeholder]
+                                       [:option {:value (if (keyword oid)
+                                                          (name oid)
+                                                          oid)} (name oname)])]]
             [:input.input {:id attr
                            :name attr
                            :type type
@@ -128,7 +152,13 @@
      (for [[k v] entity]
        [:li
         [:strong (name k)] " "
-        v])]]])
+        (if (vector? v)
+          (if (vector? (first v))
+            (for [[ref text] v]
+              [:a {:href ref} text])
+            (let [[ref text] v]
+              [:a {:href ref} text]))
+          v)])]]])
 
 (defn delete [{:keys [model entity id]}]
   [:div.content
@@ -139,7 +169,13 @@
      (for [[k v] entity]
        [:li
         [:strong (name k)] " "
-        v])]
+        (if (vector? v)
+          (if (vector? (first v))
+            (for [[ref text] v]
+              [:a {:href ref} text])
+            (let [[ref text] v]
+              [:a {:href ref} text]))
+          v)])]
     (hiccup.form/form-to
      [:post (str "/" model "s/" id "/patch")]
      (anti-forgery-field)
@@ -152,7 +188,7 @@
 (defn edit [{:keys [model attrs values id]}]
   [:div.content
    [:a.button.is-link {:href (str "/" model "s")} "Back"]
-   [:h2.title (str "New " (s/capitalize model))]
+   [:h2.title (str "Edit " (s/capitalize model))]
    [:div.content
     (hiccup.form/form-to
      [:post (str "/" model "s/" id "/patch")]
@@ -162,13 +198,26 @@
          [:div.field
           [:label.label {:for attr} k]
           (case type
+            :multi-selection [:div.select.is-mulitple
+                              {:style "margin-bottom: 10rem !important;"}
+                              [:select {:id attr
+                                        :size "5"
+
+                                        :multiple true
+                                        :name attr}
+                               (for [[oid oname] placeholder]
+                                 [:option {:value (if (keyword oid)
+                                                    (name oid)
+                                                    oid)
+                                           :selected (= oid (k values))}
+                                  (name oname)])]]
             :selection [:div.select [:select {:id attr
                                               :name attr}
-                                     (for [o placeholder]
-                                       [:option
-                                        {:value (name o)
-                                         :selected (= o (k values))}
-                                        (name o)])]]
+                                     (for [[oid oname] placeholder]
+                                       [:option {:value (if (keyword oid)
+                                                          (name oid)
+                                                          oid)
+                                                 :selected (= oid (k values))} (name oname)])]]
             [:input.input {:id attr
                            :name attr
                            :type type

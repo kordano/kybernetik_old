@@ -15,6 +15,10 @@
  {:db/ident :user/lastname
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one}
+ {:db/ident :user/ref
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity}
  {:db/ident :user/role
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/one}
@@ -22,4 +26,26 @@
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one}
 
+ {:db/ident :project/title
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :project/description
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :project/ref
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity}
+ {:db/ident :project/start-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :project/end-date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :project/supervisor
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :project/members
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many}
  ]

@@ -2,14 +2,11 @@
   (:require
    [kybernetik.layout :as layout]
    [kybernetik.db.core :as db]
-   [hiccup.core :as h]
-   [clojure.java.io :as io]
-   [kybernetik.middleware :as middleware]
-   [ring.util.response :as rur]
-   [ring.util.http-response :as response]))
+   [ring.util.response :as rur]))
 
 (defn index [{:keys [flash] :as request}]
   (let [attrs [:db/id
+               :user/ref
                :user/name
                :user/firstname
                :user/lastname
@@ -55,13 +52,13 @@
                         :user/lastname {:type :text
                                         :placeholder "Lastname"}
                         :user/role {:type :selection
-                                    :placeholder [:role/admin
-                                               :role/manager
-                                               :role/employee
-                                               :role/contractor]}}
+                                    :placeholder [[:role/admin :role/admin]
+                                                  [:role/manager :role/manager]
+                                                  [:role/employee :role/employee]
+                                                  [:role/contractor :role/contractor]]}}
                 :model "user"})
    {:title "New User"
-    :page "users/new"}))
+    :page "users"}))
 
 (defn edit [{{:keys [id]} :path-params :as request}]
   (let [user (db/get-user (Integer/parseInt id))]
@@ -74,15 +71,15 @@
                           :user/lastname {:type :text
                                           :placeholder "Lastname"}
                           :user/role {:type :selection
-                                      :placeholder [:role/admin
-                                                    :role/manager
-                                                    :role/employee
-                                                    :role/contractor]}}
+                                      :placeholder [[:role/admin :role/admin]
+                                                    [:role/manager :role/manager]
+                                                    [:role/employee :role/employee]
+                                                    [:role/contractor :role/contractor]]}}
                    :values (update user :user/role :db/ident)
                    :id id
                   :model "user"})
-     {:title "New User"
-      :page "users/edit"})))
+     {:title "Edit User"
+      :page "users"})))
 
 (defn show [{{:keys [id]} :path-params flash :flash :as request}]
   (layout/render
@@ -117,7 +114,7 @@
                  (update-in [:user/role] :db/ident))})
    (merge
     {:title "Delete User"
-     :page (str "users/" id "/delete")}
+     :page "users"}
     {:message {:text "Do you really want to delete the following User?"
                :type :error}})))
 
@@ -137,4 +134,4 @@
           (db/update-user updated-user)
           (assoc (rur/redirect (str "/users/" id "/show")) :flash "User sucessfully updated."))
         (catch Exception e
-          (assoc (rur/redirect (str "/users/new" )) :flash "User could not be created."))))))
+          (assoc (rur/redirect "/users/") :flash "User could not be updated."))))))
