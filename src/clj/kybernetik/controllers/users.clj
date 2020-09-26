@@ -28,15 +28,15 @@
         {:message {:text flash
                    :type :info}})))))
 
-(defn create [{:keys [form-params params] :as request}]
-  (let [new-user {:user/name (:name params)
-                  :user/firstname (:firstname params)
-                  :user/lastname (:lastname params)
-                  :user/role (keyword "role" (:role params))}]
+(defn create [{{:keys [name firstname lastname role]}:params :as request}]
+  (let [new-user {:user/name name
+                  :user/firstname firstname
+                  :user/lastname lastname
+                  :user/role (keyword "role" role)}]
     (try
       (do
         (let [id (db/create-user new-user)]
-          (assoc (rur/redirect (str "/users/" id "/show")) :flash "User sucessfully created.")))
+          (assoc (rur/redirect (str "/users")) :flash (str "User " name " sucessfully created."))))
       (catch Exception e
         (assoc (rur/redirect (str "/users/new" )) :flash "User could not be created.")))))
 
@@ -86,6 +86,7 @@
    request
    (layout/show
     {:model "user"
+     :id id
      :entity (-> (db/get-user (Integer/parseInt id))
                  (update-in [:user/role] :db/ident))})
    (merge
@@ -132,6 +133,6 @@
       (try
         (do
           (db/update-user updated-user)
-          (assoc (rur/redirect (str "/users/" id "/show")) :flash "User sucessfully updated."))
+          (assoc (rur/redirect (str "/users")) :flash "User sucessfully updated."))
         (catch Exception e
           (assoc (rur/redirect "/users/") :flash "User could not be updated."))))))

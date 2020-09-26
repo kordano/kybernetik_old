@@ -1,16 +1,16 @@
 (ns kybernetik.layout
   (:require
-    [clojure.java.io]
-    [selmer.parser :as parser]
-    [selmer.filters :as filters]
-    [hiccup.core :as h]
-    [hiccup.page :as hp]
-    [clojure.string :as s]
-    [markdown.core :refer [md-to-html-string]]
-    [ring.util.http-response :refer [content-type ok]]
-    [ring.util.anti-forgery :refer [anti-forgery-field]]
-    [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
-    [ring.util.response :refer [redirect]]))
+   [clojure.java.io]
+   [selmer.parser :as parser]
+   [selmer.filters :as filters]
+   [hiccup.core :as h]
+   [hiccup.page :as hp]
+   [clojure.string :as s]
+   [markdown.core :refer [md-to-html-string]]
+   [ring.util.http-response :refer [content-type ok]]
+   [ring.util.anti-forgery :refer [anti-forgery-field]]
+   [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
+   [ring.util.response :refer [redirect]]))
 
 (parser/set-resource-path!  (clojure.java.io/resource "html"))
 (parser/add-tag! :csrf-field (fn [_ _] (anti-forgery-field)))
@@ -20,8 +20,8 @@
   [:head
    [:title (or title "Kybernetik")]
    (hp/include-css "/assets/bulma/css/bulma.min.css"
-                   "/assets/material-icons/css/material-icons.min.css"
-                   #_"/css/screen.css")])
+                   "/css/mdi/css/materialdesignicons.min.css"
+                   "/css/screen.css")])
 
 (def footer
   [:script {:type "text/javascript"}
@@ -77,153 +77,196 @@
      content]]
    footer))
 
+(defn go-back [model]
+  [:a.is-link {:href (str "/" model "s")} "Back"])
+
+(defn action-buttons [model id]
+  [:div.buttons
+   [:a {:href (str "/" model "s/" id "/edit")}
+    [:span.icon.is-medium
+     [:i.mdi.mdi-square-edit-outline.mdi-24px.mdi-dark]]]
+   [:a {:href (str "/" model "s/" id "/delete")}
+    [:span.icon.has-text-danger.is-medium
+     [:i.mdi.mdi-delete.mdi-24px]]]])
+
+(defn card-footer-edit [model id]
+  [:a.card-footer-item {:href (str "/" model "s/" id "/edit")} "Edit"])
+
+(defn card-footer-delete [model id]
+  [:a.card-footer-item.has-text-danger {:href (str "/" model "s/" id "/delete")} "Delete"])
+
+(defn card-footer-show [model id]
+  [:a.card-footer-item {:href (str "/" model "s/" id "/show")} "Show"])
+
+(defn details
+  "Details card for model with header, table contents, and footer with actions"
+  [model view tbody actions & {:keys [title-postfix thead listing? back-btn?]
+                               :or {title-postfix ""
+                                    listing? false
+                                    back-btn? true}}]
+  [:div.content
+   [:div.card
+    [:header.card-header
+     [:p.card-header-title (s/join " " [view (str (s/capitalize model) (if listing? "s" "")) title-postfix])]]
+    [:div.card-content
+     [:div.content
+      [:table.table
+       (when thead
+         [:thead thead])
+       [:tbody
+        tbody]]]
+     [:footer.card-footer
+      (when back-btn?
+        [:div.card-footer-item
+         [:a {:href (str "/" model "s")} (str "Back to " (s/capitalize model) "s")]])
+      (for [action actions]
+        action)]]]])
 
 (defn index [{:keys [attrs rows model]}]
-  [:div.content
-   [:h2 (str "Listing " (s/capitalize model) "s")]
-   [:table
-    [:thead [:tr
-             (for [a attrs]
-               [:td a])
-            [:td ""] ]]
-    [:tbody
-     (for [row rows]
-       [:tr
-        (for [r row]
-          (if (vector? r)
-            (if (vector? (first r))
-              [:td
-               (for [[ref text] r]
-                 [:a {:href ref} text])]
-              (let [[ref text] r]
-                [:td [:a {:href ref} text]]))
-            [:td r]))
-        (let [id (str (first row))]
-          [:td
-           [:div.buttons
-            [:a.button.is-info {:href (str model "s/" id "/show")  } "show"]
-            [:a.button.is-warning {:href (str model "s/" id "/edit")} "edit"]
-            [:a.button.is-danger {:href (str model "s/" id "/delete")} "delete"]]])])]]
-   [:a.button.is-link {:href (str model "s/new")} (str "New " (s/capitalize model))]])
+  (let [thead [:tr
+               (for [a attrs]
+                 [:th a])
+               [:td ""]]
+        tbody (for [row rows]
+                (let [id (str (first row))]
+                  [:tr
+                   [:th
+                    [:a.is-link
+                     {:href (str model "s/" id "/show")}
+                     id]]
+                   (for [r (rest row)]
+                     (if (vector? r)
+                       (if (vector? (first r))
+                         [:td
+                          (for [[ref text] r]
+                            [:a.index-refs {:href ref} text])]
+                         (let [[ref text] r]
+                           [:td [:a {:href ref} text]]))
+                       [:td r]))
+                   [:td
+                    [:div.buttons
+                     [:a {:href (str model "s/" id "/edit")}
+                      [:span.icon.is-medium
+                       [:i.mdi.mdi-square-edit-outline.mdi-24px.mdi-dark]]]
+                     [:a {:href (str model "s/" id "/delete")}
+                      [:span.icon.has-text-danger.is-medium
+                       [:i.mdi.mdi-delete.mdi-24px]]]]]]))
+        actions [[:a.card-footer-item {:href (str model "s/new")} (str "New " (s/capitalize model))]]]
+    (details model "Listing" tbody actions :thead thead :listing? true :back-btn? false)))
 
 (defn new [{:keys [attrs model]}]
-  [:div.content
-   [:a.button.is-link {:href (str "/" model "s")} "Back"]
-   [:h2.title (str "New " (s/capitalize model))]
-   [:div.content
-    (hiccup.form/form-to
-     [:post (str "/" model "s")]
+  (let [tbody (for [[k {:keys [type placeholder]}] attrs]
+                (let [attr (name k)]
+                  [:tr
+                   [:th k]
+                   [:td
+                    (case type
+                      :multi-selection [:div.select.is-mulitple
+                                        {:style "margin-bottom: 10rem !important;"}
+                                        [:select {:id attr
+                                                  :size "5"
+                                                  :multiple true
+                                                  :name attr}
+                                         (for [[oid oname] placeholder]
+                                           [:option {:value (if (keyword oid)
+                                                              (name oid)
+                                                              oid)
+                                                     :selected (= oid :employee)}
+                                            (name oname)])]]
+                      :selection [:div.select [:select {:id attr
+                                                        :name attr}
+                                               (for [[oid oname] placeholder]
+                                                 [:option {:value (if (keyword oid)
+                                                                    (name oid)
+                                                                    oid)}
+                                                  (name oname)])]]
+                      [:input.input {:id attr
+                                     :name attr
+                                     :type type
+                                     :placeholder placeholder}])]]))
+        actions [[:input.card-footer-item.card-action-item {:type :submit :value "Save"}]]]
+    [:form {:action (str "/" model "s")
+            :method "POST"}
      (anti-forgery-field)
-     (for [[k {:keys [type placeholder]}] attrs]
-       (let [attr (name k)]
-         [:div.field
-          [:label.label {:for attr} k]
-          (case type
-            :multi-selection [:div.select.is-mulitple
-                              {:style "margin-bottom: 10rem !important;"}
-                              [:select {:id attr
-                                        :size "5"
+     (details model "New" tbody actions)]))
 
-                                        :multiple true
-                                        :name attr}
-                               (for [[oid oname] placeholder]
-                                 [:option {:value (if (keyword oid)
-                                                    (name oid)
-                                                    oid)}
-                                  (name oname)])]]
-            :selection [:div.select [:select {:id attr
-                                              :name attr}
-                                     (for [[oid oname] placeholder]
-                                       [:option {:value (if (keyword oid)
-                                                          (name oid)
-                                                          oid)} (name oname)])]]
-            [:input.input {:id attr
-                           :name attr
-                           :type type
-                           :placeholder placeholder}])]))
-     [:input.button.is-success {:type :submit :value "Save"}])]])
-
-(defn show [{:keys [model entity]}]
-  [:div.content
-   [:a.button.is-link {:href (str "/" model "s")} "Back"]
-   [:h2.title (str "Show " (s/capitalize model))]
-   [:div.content
-    [:ul
-     (for [[k v] entity]
-       [:li
-        [:strong (name k)] " "
-        (if (vector? v)
-          (if (vector? (first v))
-            (for [[ref text] v]
-              [:a {:href ref} text])
-            (let [[ref text] v]
-              [:a {:href ref} text]))
-          v)])]]])
+(defn show [{:keys [model entity id]}]
+  (let [tbody (for [[k v] entity]
+                [:tr
+                 [:th (name k)]
+                 [:td
+                  (if (vector? v)
+                    (if (vector? (first v))
+                      (for [[ref text] v]
+                        [:a {:href ref} text])
+                      (let [[ref text] v]
+                        [:a {:href ref} text]))
+                    v)]])
+        actions [(card-footer-edit model id)
+                 (card-footer-delete model id)]]
+    (details model "Show" tbody actions :title-postfix id)))
 
 (defn delete [{:keys [model entity id]}]
-  [:div.content
-   [:a.button.is-link {:href (str "/" model "s")} "Back"]
-   [:h2.title (str "Show " (s/capitalize model))]
-   [:div.content
-    [:ul
-     (for [[k v] entity]
-       [:li
-        [:strong (name k)] " "
-        (if (vector? v)
-          (if (vector? (first v))
-            (for [[ref text] v]
-              [:a {:href ref} text])
-            (let [[ref text] v]
-              [:a {:href ref} text]))
-          v)])]
-    (hiccup.form/form-to
-     [:post (str "/" model "s/" id "/patch")]
-     (anti-forgery-field)
-     [:input.input.is-hidden {:id "_method"
-                              :name "_method"
-                              :value "delete"}]
-     [:input.button.is-danger {:type :submit
-                               :value "delete"}])]])
+  (let [tbody (for [[k v] entity]
+                [:tr
+                 [:th (name k)]
+                 [:td
+                  (if (vector? v)
+                    (if (vector? (first v))
+                      (for [[ref text] v]
+                        [:a {:href ref} text])
+                      (let [[ref text] v]
+                        [:a {:href ref} text]))
+                    v)]])
+        actions [(card-footer-edit model id)
+                 [:div.card-footer-item
+                  [:form {:action (str "/" model "s/" id "/patch")
+                          :method "POST"}
+                   (anti-forgery-field)
+                   [:input.input.is-hidden {:id "_method"
+                                            :name "_method"
+                                            :value "delete"}]
+                   [:input.card-action-item.has-text-danger {:type :submit
+                                             :value "Delete"}]]]]]
+    (details model "Delete" tbody actions :title-postfix id)))
 
 (defn edit [{:keys [model attrs values id]}]
-  [:div.content
-   [:a.button.is-link {:href (str "/" model "s")} "Back"]
-   [:h2.title (str "Edit " (s/capitalize model))]
-   [:div.content
-    (hiccup.form/form-to
-     [:post (str "/" model "s/" id "/patch")]
+  (let [tbody (for [[k {:keys [type placeholder]}] attrs]
+                (let [attr (name k)]
+                  [:tr
+                   [:th k]
+                   [:td
+                    (case type
+                      :multi-selection [:div.select.is-mulitple
+                                        {:style "margin-bottom: 10rem !important;"}
+                                        [:select {:id attr
+                                                  :size "5"
+                                                  :multiple true
+                                                  :name attr}
+                                         (for [[oid oname] placeholder]
+                                           [:option {:value (if (keyword oid)
+                                                              (name oid)
+                                                              oid)
+                                                     :selected (= oid (k values))}
+                                            (name oname)])]]
+                      :selection [:div.select [:select {:id attr
+                                                        :name attr}
+                                               (for [[oid oname] placeholder]
+                                                 [:option {:value (if (keyword oid)
+                                                                    (name oid)
+                                                                    oid)
+                                                           :selected (= oid (first (k values)))} (name oname)])]]
+                      [:input.input {:id attr
+                                     :name attr
+                                     :type type
+                                     :value (k values)
+                                     :placeholder placeholder}])]]))
+        actions [(card-footer-show model id)
+                 [:input.card-footer-item.card-action-item {:type :submit :value "Save"}]]]
+    [:form {:action (str "/" model "s/" id "/patch")
+            :method "POST"}
      (anti-forgery-field)
-     (for [[k {:keys [type placeholder]}] attrs]
-       (let [attr (name k)]
-         [:div.field
-          [:label.label {:for attr} k]
-          (case type
-            :multi-selection [:div.select.is-mulitple
-                              {:style "margin-bottom: 10rem !important;"}
-                              [:select {:id attr
-                                        :size "5"
-
-                                        :multiple true
-                                        :name attr}
-                               (for [[oid oname] placeholder]
-                                 [:option {:value (if (keyword oid)
-                                                    (name oid)
-                                                    oid)
-                                           :selected (= oid (k values))}
-                                  (name oname)])]]
-            :selection [:div.select [:select {:id attr
-                                              :name attr}
-                                     (for [[oid oname] placeholder]
-                                       [:option {:value (if (keyword oid)
-                                                          (name oid)
-                                                          oid)
-                                                 :selected (= oid (k values))} (name oname)])]]
-            [:input.input {:id attr
-                           :name attr
-                           :type type
-                           :value (k values)
-                           :placeholder placeholder}])]))
-     [:input.button.is-success {:type :submit :value "Save"}])]])
+     (details model "Edit" tbody actions)]))
 
 (defn welcome []
   [:div.content
@@ -241,13 +284,13 @@
   "renders the HTML template located relative to resources/html"
   [request template & [params]]
   (content-type
-    (ok
-     (parser/render-file
-      template
-      (assoc params
-             :page template
-             :csrf-token *anti-forgery-token*)))
-    "text/html; charset=utf-8"))
+   (ok
+    (parser/render-file
+     template
+     (assoc params
+            :page template
+            :csrf-token *anti-forgery-token*)))
+   "text/html; charset=utf-8"))
 
 (defn error-page
   "error-details should be a map containing the following keys:

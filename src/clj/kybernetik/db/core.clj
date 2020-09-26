@@ -67,7 +67,7 @@
          [?e :db/ident ?]]))
 
 (defn get-project [id]
-  (d/pull @conn '[* {:project/supervisor [:db/id :user/ref]
+  (d/pull @conn '[* {:project/supervisor [:db/id :user/ref :user/firstname :user/lastname]
                      :project/members [:db/id :user/ref]}] id))
 
 (defn create-project [{:keys [project/title] :as new-project}]

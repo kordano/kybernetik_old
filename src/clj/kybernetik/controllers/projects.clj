@@ -39,7 +39,9 @@
   (let [new-project {:project/title title
                      :project/description description
                      :project/supervisor (Integer/parseInt supervisor)
-                     :project/members (mapv #(Integer/parseInt %) members)
+                     :project/members (if (vector? members)
+                                        (mapv #(Integer/parseInt %) members)
+                                        (Integer/parseInt members))
                      :project/start-date (or start-date (java.util.Date.))
                      :project/end-date (or end-date (java.util.Date. 129 11 31 23 59 59))}]
     (try
@@ -77,6 +79,7 @@
    request
    (layout/show
     {:model "project"
+     :id id
      :entity (-> (db/get-project (Integer/parseInt id))
                  (update-in [:project/supervisor] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
                  (update-in [:project/members] (fn [mbrs] (mapv (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]) mbrs)) ))})
@@ -147,7 +150,7 @@
       (try
         (do
           (db/update-project updated-project)
-          (assoc (rur/redirect (str "/projects/" id "/show")) :flash "project sucessfully updated."))
+          (assoc (rur/redirect (str "/projects")) :flash "project sucessfully updated."))
         (catch Exception e
           (assoc (rur/redirect "/projects") :flash "Projects could not be created."))))))
 
