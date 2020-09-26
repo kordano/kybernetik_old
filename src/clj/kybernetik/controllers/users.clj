@@ -75,7 +75,7 @@
                                                     [:role/manager :role/manager]
                                                     [:role/employee :role/employee]
                                                     [:role/contractor :role/contractor]]}}
-                   :values (update user :user/role :db/ident)
+                   :values (update user :user/role (fn [{:keys [db/ident]}] [ident ident]))
                    :id id
                   :model "user"})
      {:title "Edit User"
