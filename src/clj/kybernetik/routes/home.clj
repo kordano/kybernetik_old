@@ -9,17 +9,23 @@
    [ring.util.response]
    [ring.util.http-response :as response]))
 
-(defn home-page [request]
-  (layout/render-template request "home.html" {:docs (-> "docs/docs.md" io/resource slurp)}))
-
-(defn about-page [request]
-  (layout/render-template request "about.html"))
-
-(defn home-routes []
+(defn public-routes []
   [""
    {:middleware [middleware/wrap-csrf
                  middleware/wrap-formats]}
+
    ["/" {:get kcw/index}]
+
+   ["/sign-in" {:get kcu/sign-in
+                :post kcu/sign-in!}]
+
+   ["/sign-out" {:get kcu/sign-out!}]])
+
+(defn routes []
+  [""
+   {:middleware [middleware/wrap-csrf
+                 middleware/wrap-formats
+                 middleware/wrap-restricted]}
 
    ["/users" {:get kcu/index
               :post kcu/create}]
@@ -37,10 +43,6 @@
    ["/projects/:id/edit" {:get kcp/edit }]
    ["/projects/:id/delete" {:get kcp/delete-question
                             :delete kcp/delete}]
-   ["/projects/:id/patch" {:post kcp/patch}]
+   ["/projects/:id/patch" {:post kcp/patch}]])
 
-
-
-
-   ])
 

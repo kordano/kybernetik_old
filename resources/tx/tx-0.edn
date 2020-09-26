@@ -9,6 +9,10 @@
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one
   :db/unique :db.unique/identity}
+ {:db/ident :user/email
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one
+  :db/unique :db.unique/identity}
  {:db/ident :user/firstname
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one}
@@ -48,4 +52,11 @@
  {:db/ident :project/members
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many}
- ]
+
+ {:user/name "root"
+  :user/email "root@kybernetik.io"
+  :user/firstname "The"
+  :user/lastname "R00T"
+  :user/password "bcrypt+sha512$8d230e4425a880cd9aec08c45295c2ef$12$74568287ea8342e4725c4d7028583f7061ceb80a69635b3d"
+  :user/ref "TR"
+  :user/role :role/admin}]

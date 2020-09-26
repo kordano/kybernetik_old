@@ -2,6 +2,7 @@
   "Userspace functions you can run by default in your local REPL."
   (:require
    [kybernetik.config :refer [env]]
+   [datahike.api :as d]
    [kybernetik.db.core :refer [conn reset-db] :as db]
     [clojure.pprint]
     [clojure.spec.alpha :as s]

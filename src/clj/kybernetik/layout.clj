@@ -34,24 +34,32 @@
         });
       })();"])
 
-(defn navbar [{:keys [page]}]
+(defn navbar [{:keys [page signed-in?]}]
   [:nav.navbar.is-light
    [:div.container
     [:div.navbar-brand
      [:a.navbar-item {:href "/"} "kybernetik"]]
     [:div.navbar-menu
-     [:div.navbar-start
-      [:a {:href "/projects"
-           :class (str "navbar-item" (if (= page "projects") " is-active" ""))}
-       "Projects"]
-      [:a {:href "/users"
-           :class (str "navbar-item" (if (= page "users") " is-active" ""))}
-       "Users"]]]]])
+     (when signed-in?
+       [:div.navbar-start
+        [:a {:href "/projects"
+             :class (str "navbar-item" (if (= page "projects") " is-active" ""))}
+         "Projects"]
+        [:a {:href "/users"
+             :class (str "navbar-item" (if (= page "users") " is-active" ""))}
+         "Users"]])
+     [:div.navbar-end
+      [:div.buttons
+       (if signed-in?
+         [:a.button {:href "/sign-out"} "Sign out"]
+         [:a.button.is-primary {:href "/sign-in"} "Sign in"])]]]]])
 
-(defn base [content & [{{:keys [type text] :as message} :message :as params}]]
+(defn base [{:keys [session] :as request }content & [{{:keys [type text] :as message} :message :as params}]]
   (hp/html5
    (header params)
-   (navbar params)
+   (navbar (if (:identity session)
+             (assoc params :signed-in? true)
+             params))
    [:section.section
     [:div.container
      [:article {:class (str "message "
@@ -268,16 +276,44 @@
      (anti-forgery-field)
      (details model "Edit" tbody actions)]))
 
-(defn welcome []
-  [:div.content
-   [:h2 "Welcome user"]])
+(defn welcome [{:keys [session] :as request}]
+  [:section.hero
+   [:div.hero-body 
+    [:div.container
+     [:h1.title (if-let [id (:identity session)]
+                  (str "Welcome " id)
+                  (str "Not logged in."))]]]])
+
+(defn sign-in []
+  [:div.columns.is-centered
+   [:div.column.card.is-half
+    [:header.card-header
+     [:p.card-header-title "Sign in"]]
+    [:form {:action "/sign-in" :method "POST"}
+     (anti-forgery-field)
+     [:div.card-content
+      [:div.content
+       [:div.field
+        [:label.label {:for "email"} "Email"]
+        [:input.input {:id "email"
+                       :name "email"
+                       :type "email"
+                       :placeholder "max@mustermann.de"}]]
+       [:div.field
+        [:label.label {:for "password"} "Password"]
+        [:input.input {:id "password"
+                       :type "password"
+                       :name "password"
+                       :placeholder "12345"}]]]
+      [:footer.card-footer
+       [:input.card-footer-item.card-action-item {:type :submit :value "Sign in"}]]]]]])
 
 (defn render
   "renders the HTML template located relative to resources/html"
   [request content & [params]]
   (content-type
    (ok
-    (base content params))
+    (base request content params))
    "text/html; charset=utf-8"))
 
 (defn render-template

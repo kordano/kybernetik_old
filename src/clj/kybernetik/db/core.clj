@@ -1,5 +1,6 @@
 (ns kybernetik.db.core
   (:require [datahike.api :as d]
+            [buddy.hashers :as hashers]
             [kybernetik.config :refer [env]]
             [mount.core :as mount]
             [clojure.string :as s]))
@@ -44,9 +45,9 @@
   (d/pull @conn '[* {:user/role [:db/ident]}] id))
 
 (defn create-user [{:keys [:user/firstname :user/lastname] :as new-user}]
-  (let [{:keys [tempids]} (d/transact conn [(assoc new-user
-                                                   :db/id -1
-                                                   :user/ref (create-ref (str firstname " " lastname) :user/ref))])]
+  (let [{:keys [tempids]} (d/transact conn [(-> new-user
+                                                (assoc :db/id -1 :user/ref (create-ref (str firstname " " lastname) :user/ref))
+                                                (update :user/password hashers/derive))])]
     (get tempids -1)))
 
 (defn update-user [updated-user]
@@ -60,6 +61,11 @@
          :where
          [?e :user/name _]]
        @conn))
+
+(defn validate-user [{:keys [email password]}]
+  (if-let [user (d/entity @conn [:user/email email])]
+    (hashers/check password (:user/password user))
+    false))
 
 (defn list-roles []
   (d/q '[:find ?r
