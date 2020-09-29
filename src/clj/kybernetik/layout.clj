@@ -34,6 +34,11 @@
         });
       })();"])
 
+(defn navlink [page model]
+  [:a {:href (str "/" model "s")
+       :class (str "navbar-item" (if (= page (str model "s")) " is-active" ""))}
+   (str (s/capitalize model) "s")])
+
 (defn navbar [{:keys [page signed-in?]}]
   [:nav.navbar.is-light
    [:div.container
@@ -42,12 +47,9 @@
     [:div.navbar-menu
      (when signed-in?
        [:div.navbar-start
-        [:a {:href "/projects"
-             :class (str "navbar-item" (if (= page "projects") " is-active" ""))}
-         "Projects"]
-        [:a {:href "/users"
-             :class (str "navbar-item" (if (= page "users") " is-active" ""))}
-         "Users"]])
+        (navlink page "log")
+        (navlink page "project")
+        (navlink page "user")])
      [:div.navbar-end
       [:div.buttons
        (if signed-in?

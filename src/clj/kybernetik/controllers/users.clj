@@ -102,7 +102,7 @@
                  (update-in [:user/role] :db/ident))})
    (merge
     {:title "Show User"
-     :page (str "users/" id "/show")}
+     :page "users"}
     (when flash
       {:message {:text flash
                  :type :info}}))))

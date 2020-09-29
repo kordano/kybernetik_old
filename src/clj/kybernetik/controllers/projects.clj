@@ -2,6 +2,7 @@
   (:require
    [kybernetik.layout :as layout]
    [kybernetik.db.core :as db]
+   [kybernetik.utils :as u]
    [ring.util.response :as rur]))
 
 (defn index [{:keys [flash] :as request}]
@@ -20,6 +21,8 @@
                                                      [(str "/users/" id "/show") ref])
                                :project/members (mapv (fn [{:keys [:db/id :user/ref]}]
                                                         [(str "/users/" id "/show") ref]) (:project/members proj))
+                               :project/start-date (-> proj :project/start-date u/date->str)
+                               :project/end-date (-> proj :project/end-date u/date->str)
                                (a proj))) attrs))
                    (db/list-projects))]
     (layout/render
@@ -42,8 +45,12 @@
                      :project/members (if (vector? members)
                                         (mapv #(Integer/parseInt %) members)
                                         (Integer/parseInt members))
-                     :project/start-date (or start-date (java.util.Date.))
-                     :project/end-date (or end-date (java.util.Date. 129 11 31 23 59 59))}]
+                     :project/start-date (if start-date
+                                           (u/str->date start-date)
+                                           (java.util.Date.))
+                     :project/end-date (if end-date
+                                         (u/str->date end-date)
+                                         (java.util.Date. 129 11 31 23 59 59))}]
     (try
       (do
         (let [id (db/create-project new-project)]
@@ -68,7 +75,11 @@
                                             :placeholder (mapv
                                                           (fn [{:keys [:db/id :user/firstname :user/lastname]}]
                                                             [id (str firstname " " lastname)])
-                                                          users)}}
+                                                          users)}
+                          :project/start-date {:type :date
+                                               :placeholder "Start Date"}
+                          :project/end-date {:type :date
+                                             :placeholder "End Date"}}
                   :model "project"})
      {:title "New Project"
       :page "projects"})))

@@ -93,3 +93,31 @@
          :where
          [?e :project/ref _]]
        @conn))
+
+(defn list-user-projects [user-id]
+  (d/q '[:find [(pull ?e [* {:project/supervisor [:db/id :user/ref]
+                             :project/members [:db/id :user/ref]}]) ...]
+         :in $ ?uid
+         :where
+         [?e :project/ref _]
+         [?e :project/members ?uid]]
+       @conn user-id))
+
+
+(defn get-log [id]
+  (d/pull @conn '[* {:log/user [:db/id :user/ref :user/firstname :user/lastname]
+                     :log/project [:db/id :project/ref :project/title]}] id))
+
+
+(defn create-log [new-log]
+  (d/transact conn [new-log]))
+
+(defn update-log [updated-log]
+  (d/transact conn [updated-log]))
+
+(defn list-logs []
+  (d/q '[:find [(pull ?e [* {:log/user [:db/id :user/ref]
+                             :log/project [:db/id :project/ref]}]) ...]
+         :where
+         [?e :log/user _]]
+       @conn))

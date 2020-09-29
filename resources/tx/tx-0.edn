@@ -53,6 +53,22 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many}
 
+ {:db/ident :log/date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :log/project
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :log/effort
+  :db/valueType :db.type/float
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :log/user
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :log/note
+  :db/valueType :db.type/string
+  :db/cardinality :db.cardinality/one}
+
  {:user/name "root"
   :user/email "root@kybernetik.io"
   :user/firstname "The"
