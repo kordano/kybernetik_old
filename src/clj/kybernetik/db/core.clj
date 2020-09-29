@@ -108,9 +108,9 @@
   (d/pull @conn '[* {:log/user [:db/id :user/ref :user/firstname :user/lastname]
                      :log/project [:db/id :project/ref :project/title]}] id))
 
-
 (defn create-log [new-log]
-  (d/transact conn [new-log]))
+  (let [{:keys [tempids]} (d/transact conn [(assoc new-log :db/id -1)])]
+    (get tempids -1)))
 
 (defn update-log [updated-log]
   (d/transact conn [updated-log]))
@@ -121,3 +121,49 @@
          :where
          [?e :log/user _]]
        @conn))
+
+
+(defn create-timesheets [{:keys [:timesheet/supervisor :timesheet/year]}]
+  (let [{:keys [db-before db-after]} (->> (list-users)
+                                          (mapcat (fn [{:keys [:db/id]}]
+                                                    (mapv
+                                                     (fn [m]
+                                                       {:timesheet/supervisor supervisor
+                                                        :timesheet/user id
+                                                        :timesheet/approved false
+                                                        :timesheet/start-date (java.util.Date. (- year 1900) m 1)
+                                                        :timesheet/end-date (java.util.Date. (if (= m 11)
+                                                                                               (- (inc year) 1900)
+                                                                                               (- year 1900))
+                                                                                             (if (= m 11)
+                                                                                               0
+                                                                                               (inc m)) 1)})
+
+                                                     (range 12))))
+                                          vec
+                                          (d/transact conn))]
+    (- (:max-eid db-after) (:max-eid db-before))))
+
+(defn list-timesheets []
+  (let [db @conn]
+    (->> (d/q '[:find [(pull ?e [:db/id :timesheet/start-date :timesheet/end-date :timesheet/approved {:timesheet/user [:db/id :user/ref]}]) ...]
+                :where
+                [?e :timesheet/start-date _]
+                [?e :timesheet/user _]]
+              db)
+         (mapv (fn [{:keys [:timesheet/user :timesheet/start-date :timesheet/end-date] :as ts}]
+                 (let [[log-count effort-sum]
+                       (d/q '[:find [(count ?l) (sum ?le)]
+                              :in $ ?u ?sd ?ed
+                              :where
+                              [?l :log/user ?u]
+                              [?l :log/date ?ld]
+                              [(<= ?sd ?ld)]
+                              [(< ?ld ?ed)]
+                              [?l :log/effort ?le]
+                              ]
+                            db (:db/id user) start-date end-date)]
+                   (merge ts {:timesheet.log/count (or log-count 0)
+                              :timesheet.effort/sum (or effort-sum 0)})))))))
+
+(defn list-user-timesheets [id])
