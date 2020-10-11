@@ -4,11 +4,11 @@
    [kybernetik.config :refer [env]]
    [datahike.api :as d]
    [kybernetik.db.core :refer [conn reset-db] :as db]
-    [clojure.pprint]
-    [clojure.spec.alpha :as s]
-    [expound.alpha :as expound]
-    [mount.core :as mount]
-    [kybernetik.core :refer [start-app]]))
+   [clojure.pprint]
+   [clojure.spec.alpha :as s]
+   [expound.alpha :as expound]
+   [mount.core :as mount]
+   [kybernetik.core :refer [start-app]]))
 
 (alter-var-root #'s/*explain-out* (constantly expound/printer))
 
@@ -31,4 +31,12 @@
   (stop)
   (start))
 
+(comment
 
+  (start)
+
+  (stop)
+
+  (reset-db)
+
+  (db/list-users))

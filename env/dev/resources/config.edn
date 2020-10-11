@@ -2,4 +2,5 @@
               :id "kybernetik"}
       :keep-history? true
       :schema-flexibility :write
-      :name "kybernetik"}}
+      :name "kybernetik"}
+ :port 3000}

@@ -6,7 +6,8 @@
    [ring.util.response :as rur]))
 
 (defn- get-log-attrs [identity]
-  (let [projects (db/list-user-projects [:user/email identity])]
+  (let [projects (db/list-user-projects [:user/email identity])
+        timesheets (db/list-timesheets [:user/email identity])]
     {:log/date {:type :date
                 :placeholder "Date"}
      :log/project {:type :selection
@@ -14,28 +15,34 @@
                                  (fn [{:keys [:db/id :project/ref]}]
                                    [id ref])
                                  projects)}
+     :log/timesheet {:type :selection
+                     :placeholder (mapv
+                                   (fn [{:keys [:db/id :timesheet/start-date]}]
+                                     [id (-> start-date u/date->month-str)])
+                                   timesheets)}
      :log/effort {:type :float
                   :placeholder "Effort"}
      :log/note {:type :string
                 :placeholder "Note"}}))
 
-(defn index [{:keys [flash] :as request}]
+(defn index [{{:keys [identity]} :session :keys [flash] :as request}]
   (let [attrs [:db/id
+               :log/timesheet
                :log/project
-               :log/user
                :log/date
                :log/note
                :log/effort]
         rows (mapv (fn [log]
                      (mapv (fn [a]
                              (case a
-                               :log/user (let [{:keys [:user/ref :db/id]} (:log/user log)]
-                                           [(str "/users/" id "/show") ref])
                                :log/project (let [{:keys [:project/ref :db/id]} (:log/project log)]
                                               [(str "/projects/" id "/show") ref])
                                :log/date (-> log :log/date u/date->str)
+                               :log/timesheet (if-let [{:keys [:timesheet/start-date :db/id]} (:log/timesheet log)]
+                                                [(str "/timesheets/" id "/show") (-> start-date u/date->month-str)]
+                                                "-")
                                (a log))) attrs))
-                   (db/list-logs))]
+                   (db/list-logs [:user/email identity]))]
     (layout/render
      request
      (layout/index {:model "log"
@@ -48,19 +55,19 @@
         {:message {:text flash
                    :type :info}})))))
 
-(defn create [{{:keys [identity]} :session {:keys [project note date effort]} :params :as request}]
+(defn create [{{:keys [identity]} :session {:keys [project note date effort timesheet]} :params}]
   (let [new-log {:log/project (Integer/parseInt project)
                  :log/date (if date
                              (u/str->date date)
                              (java.util.Date.))
                  :log/note note
+                 :log/timesheet (Integer/parseInt timesheet)
                  :log/user [:user/email identity]
                  :log/effort (Float/parseFloat effort)}]
     (try
-      (do
-        (let [id (db/create-log new-log)]
-          (assoc (rur/redirect "/logs") :flash "Log sucessfully created.")))
-      (catch Exception e
+      (db/create-log new-log)
+      (assoc (rur/redirect "/logs") :flash "Log sucessfully created.")
+      (catch Exception _
         (assoc (rur/redirect (str "/logs/new")) :flash "Log could not be created.")))))
 
 (defn new-log [{{:keys [identity]} :session :as request}]
@@ -128,11 +135,13 @@
 
 (defn patch [{{:keys [id]} :path-params
               {:keys [identity]} :session
-              {:keys [_method project date note effort]} :params
+              {:keys [_method project date note effort timesheet]} :params
               :as request}]
   (if (= "delete" _method)
     (delete request)
     (let [updated-log (merge {:db/id (Integer/parseInt id)}
+                             (when timesheet
+                               {:log/timesheet (Integer/parseInt timesheet)})
                              (when project
                                {:log/project (Integer/parseInt project)})
                              (when date
@@ -142,9 +151,8 @@
                              (when effort
                                {:log/effort (Float/parseFloat effort)}))]
       (try
-        (do
-          (db/update-log updated-log)
-          (assoc (rur/redirect (str "/logs")) :flash "Log sucessfully updated."))
+        (db/update-log updated-log)
+        (assoc (rur/redirect (str "/logs")) :flash "Log sucessfully updated.")
         (catch Exception e
           (assoc (rur/redirect "/logs") :flash "Log could not be updated."))))))
 

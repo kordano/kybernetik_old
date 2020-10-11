@@ -39,7 +39,7 @@
        :class (str "navbar-item" (if (= page (str model "s")) " is-active" ""))}
    (str (s/capitalize model) "s")])
 
-(defn navbar [{:keys [page signed-in?]}]
+(defn navbar [{:keys [page signed-in? identity]}]
   [:nav.navbar.is-light
    [:div.container
     [:div.navbar-brand
@@ -51,16 +51,18 @@
         (navlink page "project")
         (navlink page "user")])
      [:div.navbar-end
+      (when signed-in?
+        [:p.navbar-item.has-text-grey.is-size-7 "Signed in as " identity])
       [:div.buttons
        (if signed-in?
          [:a.button {:href "/sign-out"} "Sign out"]
          [:a.button.is-primary {:href "/sign-in"} "Sign in"])]]]]])
 
-(defn base [{:keys [session] :as request }content & [{{:keys [type text] :as message} :message :as params}]]
+(defn base [{{:keys [identity]} :session} content & [{{:keys [type text] :as message} :message :as params}]]
   (hp/html5
    (header params)
-   (navbar (if (:identity session)
-             (assoc params :signed-in? true)
+   (navbar (if identity
+             (assoc params :signed-in? true :identity identity)
              params))
    [:section.section
     [:div.container
@@ -110,7 +112,7 @@
 
 (defn details
   "Details card for model with header, table contents, and footer with actions"
-  [model view tbody actions & {:keys [title-postfix thead listing? back-btn?]
+  [model view tbody actions & {:keys [title-postfix thead listing? back-btn? actions?]
                                :or {title-postfix ""
                                     listing? false
                                     back-btn? true}}]
@@ -124,7 +126,9 @@
        (when thead
          [:thead thead])
        [:tbody
-        tbody]]]
+        tbody]]
+      (when (empty? tbody)
+        [:p.has-text-grey.center (str "No results found.")])]
      [:footer.card-footer
       (when back-btn?
         [:div.card-footer-item
@@ -132,7 +136,8 @@
       (for [action actions]
         action)]]]])
 
-(defn index [{:keys [attrs rows model]}]
+(defn index [{:keys [attrs rows model editable?]
+              :or {editable? true}}]
   (let [thead [:tr
                (for [a attrs]
                  [:th a])
@@ -145,22 +150,28 @@
                      {:href (str model "s/" id "/show")}
                      id]]
                    (for [r (rest row)]
-                     (if (vector? r)
-                       (if (vector? (first r))
-                         [:td
-                          (for [[ref text] r]
-                            [:a.index-refs {:href ref} text])]
-                         (let [[ref text] r]
-                           [:td [:a {:href ref} text]]))
-                       [:td r]))
+                     (cond
+                       (vector? r) (if (vector? (first r))
+                                     [:td
+                                      (for [[ref text] r]
+                                        [:a.index-refs {:href ref} text])]
+                                     (let [[ref text] r]
+                                       [:td [:a {:href ref} text]]))
+                       (boolean? r) [:td
+                                     (if r [:span.icon.has-text-success
+                                            [:i.mdi.mdi-check-circle]]
+                                         [:span.icon.has-text-danger
+                                          [:i.mdi.mdi-close-circle]])]
+                       :else [:td r]))
                    [:td
-                    [:div.buttons
-                     [:a {:href (str model "s/" id "/edit")}
-                      [:span.icon.is-medium
-                       [:i.mdi.mdi-square-edit-outline.mdi-24px.mdi-dark]]]
-                     [:a {:href (str model "s/" id "/delete")}
-                      [:span.icon.has-text-danger.is-medium
-                       [:i.mdi.mdi-delete.mdi-24px]]]]]]))
+                    (when editable?
+                      [:div.buttons
+                       [:a {:href (str model "s/" id "/edit")}
+                        [:span.icon.is-medium
+                         [:i.mdi.mdi-square-edit-outline.mdi-24px.mdi-dark]]]
+                       [:a {:href (str model "s/" id "/delete")}
+                        [:span.icon.has-text-danger.is-medium
+                         [:i.mdi.mdi-delete.mdi-24px]]]])]]))
         actions [[:a.card-footer-item {:href (str model "s/new")} (str "New " (s/capitalize model))]]]
     (details model "Listing" tbody actions :thead thead :listing? true :back-btn? false)))
 
@@ -237,7 +248,7 @@
                                             :name "_method"
                                             :value "delete"}]
                    [:input.card-action-item.has-text-danger {:type :submit
-                                             :value "Delete"}]]]]]
+                                                             :value "Delete"}]]]]]
     (details model "Delete" tbody actions :title-postfix id)))
 
 (defn edit [{:keys [model attrs values id]}]
@@ -280,7 +291,7 @@
 
 (defn welcome [{:keys [session] :as request}]
   [:section.hero
-   [:div.hero-body 
+   [:div.hero-body
     [:div.container
      [:h1.title (if-let [id (:identity session)]
                   (str "Welcome " id)
@@ -309,6 +320,10 @@
                        :placeholder "12345"}]]]
       [:footer.card-footer
        [:input.card-footer-item.card-action-item {:type :submit :value "Sign in"}]]]]]])
+
+(defn container [& more]
+  [:div.container
+   more])
 
 (defn render
   "renders the HTML template located relative to resources/html"
