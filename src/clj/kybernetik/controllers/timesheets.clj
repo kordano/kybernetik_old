@@ -3,13 +3,12 @@
    [kybernetik.layout :as layout]
    [kybernetik.db.core :as db]
    [kybernetik.utils :as u]
-   [ring.util.response :as rur])
-  (:import [java.util Calendar Date]))
+   [ring.util.response :as rur]))
 
 (defn- get-timesheet-attrs []
   (let [users (db/list-users)]
     {:timesheet/year {:type :selection
-                      :placeholder (mapv (fn [n] [(str n) (str n)]) (range 2020 2031))}
+                      :placeholder (mapv (fn [n] [(str n) (str n)]) (range 2020 2061))}
      :timesheet/month {:type :selection
                        :placeholder (->> ["January"
                                           "February"
@@ -119,7 +118,6 @@
              flash :flash
              :as request}]
   (let [log-attrs [:db/id
-                   :log/timesheet
                    :log/project
                    :log/date
                    :log/note
@@ -130,11 +128,8 @@
                                    :log/project (let [{:keys [:project/ref :db/id]} (:log/project log)]
                                                   [(str "/projects/" id "/show") ref])
                                    :log/date (-> log :log/date u/date->str)
-                                   :log/timesheet (if-let [{:keys [:timesheet/start-date :db/id]} (:timesheet/_logs log)]
-                                                    [(str "/timesheets/" id "/show") (-> start-date u/date->month-str)]
-                                                    "-")
                                    (a log))) log-attrs))
-                       (db/list-logs {:user-id [:user/email identity] :timesheet-id (Integer/parseInt id)}))]
+                       (sort-by :log/date (db/list-logs {:user-id [:user/email identity] :timesheet-id (Integer/parseInt id)})))]
     (layout/render
      request
      (layout/container

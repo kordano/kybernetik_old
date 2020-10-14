@@ -80,7 +80,9 @@
                  :log/effort (Float/parseFloat effort)}]
     (try
       (db/create-log new-log)
-      (assoc (rur/redirect "/logs") :flash "Log sucessfully created.")
+      (assoc (rur/redirect (if tid
+                             (str "/timesheets/" tid "/show") 
+                             "/logs")) :flash "Log sucessfully created.")
       (catch Exception _
         (assoc (rur/redirect (str "/logs/new")) :flash "Log could not be created.")))))
 
