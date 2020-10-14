@@ -47,7 +47,7 @@
     [:div.navbar-menu
      (when signed-in?
        [:div.navbar-start
-        (navlink page "log")
+        (navlink page "timesheet")
         (navlink page "project")
         (navlink page "user")])
      [:div.navbar-end
@@ -136,8 +136,9 @@
       (for [action actions]
         action)]]]])
 
-(defn index [{:keys [attrs rows model editable?]
-              :or {editable? true}}]
+(defn index [{:keys [attrs rows model editable? actions]
+              :or {editable? true
+                   actions {:new {}}}}]
   (let [thead [:tr
                (for [a attrs]
                  [:th a])
@@ -158,10 +159,11 @@
                                      (let [[ref text] r]
                                        [:td [:a {:href ref} text]]))
                        (boolean? r) [:td
-                                     (if r [:span.icon.has-text-success
-                                            [:i.mdi.mdi-check-circle]]
-                                         [:span.icon.has-text-danger
-                                          [:i.mdi.mdi-close-circle]])]
+                                     (if r
+                                       [:span.icon.has-text-success
+                                        [:i.mdi.mdi-check-circle]]
+                                       [:span.icon.has-text-danger
+                                        [:i.mdi.mdi-close-circle]])]
                        :else [:td r]))
                    [:td
                     (when editable?
@@ -172,11 +174,15 @@
                        [:a {:href (str model "s/" id "/delete")}
                         [:span.icon.has-text-danger.is-medium
                          [:i.mdi.mdi-delete.mdi-24px]]]])]]))
-        actions [[:a.card-footer-item {:href (str model "s/new")} (str "New " (s/capitalize model))]]]
-    (details model "Listing" tbody actions :thead thead :listing? true :back-btn? false)))
+        action-items (for [[a params] actions]
+                       (let [param-str (if-not (empty? params)
+                                         (str "?" (reduce (partial clojure.string/join "&") (map (fn [[k v]] (str (name k) "=" v)) params)))
+                                         "")]
+                         [:a.card-footer-item {:href (str "/" model "s/" (name a) param-str)} (str (s/capitalize (name a)) " " (s/capitalize model))]))]
+    (details model "Listing" tbody action-items :thead thead :listing? true :back-btn? false)))
 
-(defn new [{:keys [attrs model]}]
-  (let [tbody (for [[k {:keys [type placeholder]}] attrs]
+(defn new [{:keys [attrs model submit-params title-postfix]}]
+  (let [tbody (for [[k {:keys [type placeholder min max]}] attrs]
                 (let [attr (name k)]
                   [:tr
                    [:th k]
@@ -204,12 +210,17 @@
                       [:input.input {:id attr
                                      :name attr
                                      :type type
+                                     :min min
+                                     :max max
                                      :placeholder placeholder}])]]))
-        actions [[:input.card-footer-item.card-action-item {:type :submit :value "Save"}]]]
-    [:form {:action (str "/" model "s")
+        actions [[:input.card-footer-item.card-action-item {:type :submit :value "Save"}]]
+        query-str (if-not (empty? submit-params)
+                    (str "?" (reduce (partial clojure.string/join "&") (map (fn [[k v]] (str (name k) "=" v)) submit-params)))
+                    "")]
+    [:form {:action (str "/" model "s" query-str)
             :method "POST"}
      (anti-forgery-field)
-     (details model "New" tbody actions)]))
+     (details model "New" tbody actions :title-postfix title-postfix)]))
 
 (defn show [{:keys [model entity id]}]
   (let [tbody (for [[k v] entity]

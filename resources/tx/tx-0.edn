@@ -53,9 +53,6 @@
   :db/valueType :db.type/ref
   :db/cardinality :db.cardinality/many}
 
- {:db/ident :log/timesheet
-  :db/valueType :db.type/ref
-  :db/cardinality :db.cardinality/one}
  {:db/ident :log/date
   :db/valueType :db.type/instant
   :db/cardinality :db.cardinality/one}
@@ -90,6 +87,10 @@
  {:db/ident :timesheet/submitted?
   :db/valueType :db.type/boolean
   :db/cardinality :db.cardinality/one}
+ {:db/ident :timesheet/logs
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true}
 
  {:db/id -1
   :user/name "root"
@@ -121,25 +122,28 @@
   :timesheet/user -2
   :timesheet/supervisor -1
   :timesheet/start-date #inst "2020-09-30T23:00:00.000-00:00"
-  :timesheet/end-date #inst "2020-10-31T23:00:00.000-00:00"
+  :timesheet/end-date #inst "2020-10-31T22:59:59.000-00:00"
   :timesheet/approved? false
   :timesheet/submitted? false}
 
- {:log/date #inst "2020-10-01T23:00:00.000-00:00"
+ {:db/id -5
+  :log/date #inst "2020-10-01T23:00:00.000-00:00"
   :log/user -2
   :log/project -3
   :log/effort 5.0
-  :log/timesheet -4
   :log/note "Preparations"}
- {:log/date #inst "2020-10-02T23:00:00.000-00:00"
+ {:db/id -6
+  :log/date #inst "2020-10-02T23:00:00.000-00:00"
   :log/user -2
   :log/project -3
   :log/effort 3.0
-  :log/timesheet -4
   :log/note "Meetings"}
- {:log/date #inst "2020-10-04T23:00:00.000-00:00"
+ {:db/id -7
+  :log/date #inst "2020-10-04T23:00:00.000-00:00"
   :log/user -2
   :log/project -3
   :log/effort 8.0
-  :log/timesheet -4
-  :log/note "Travel"}]
+  :log/note "Travel"}
+
+ {:db/id -4
+  :timesheet/logs [-5 -6 -7]}]

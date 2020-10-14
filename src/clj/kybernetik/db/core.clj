@@ -68,7 +68,7 @@
     false))
 
 (defn list-roles []
-  (d/q '[:find ?r
+  (d/q '[:find ?e
          :where
          [?e :db/ident ?]]))
 
@@ -107,47 +107,86 @@
   (d/pull @conn '[* {:log/user [:db/id :user/ref :user/firstname :user/lastname]
                      :log/project [:db/id :project/ref :project/title]}] id))
 
-(defn create-log [new-log]
-  (let [{:keys [tempids]} (d/transact conn [(assoc new-log :db/id -1)])]
+(defn create-log [{:keys [:log/timesheet] :as new-log}]
+  (let [{:keys [tempids]} (d/transact conn [(-> new-log
+                                                (dissoc :log/timesheet)
+                                                (assoc :db/id -1))
+                                            {:db/id timesheet
+                                             :timesheet/logs -1}])]
     (get tempids -1)))
 
-(defn update-log [updated-log]
-  (d/transact conn [updated-log]))
+(defn update-log [{:keys [:db/id :log/timesheet] :as updated-log}]
+  (d/transact conn (if timesheet
+                     [(dissoc updated-log :log/timesheet)
+                      {:db/id timesheet
+                       :timesheet/logs id}]
+                     [updated-log])))
 
 (def log-pull-pattern '[* {:log/user [:db/id :user/ref]
-                           :log/timesheet [:db/id :timesheet/start-date]
+                           :timesheet/_logs [:db/id :timesheet/start-date]
                            :log/project [:db/id :project/ref]}])
 
-(def log-user-pull-pattern '[:db/id :log/date :log/effort :log/note {:log/project [:db/id :project/ref] 
-                                                                     :log/timesheet [:db/id :timesheet/start-date]}])
+(def log-ts-pull-pattern '[* {:log/user [:db/id :user/ref]
+                              :log/project [:db/id :project/ref]}])
+
+(def log-user-pull-pattern '[:db/id :log/date :log/effort :log/note {:log/project [:db/id :project/ref]
+                                                                     :timesheet/_logs [:db/id :timesheet/start-date]}])
+
+(def log-user-ts-pull-pattern '[:db/id :log/date :log/effort :log/note {:log/project [:db/id :project/ref]}])
 
 (defn build-log-query
   ([db]
    (build-log-query db {}))
-  ([db {:keys [user-id]}]
+  ([db {:keys [user-id timesheet-id]}]
    (cond-> {:query '{:find [[(pull ?l ?pull-pattern) ...]]
                      :in [$ ?pull-pattern]
                      :where
                      []}
             :args [db]}
-     user-id (-> (update-in [:args] conj log-user-pull-pattern)
-                 (update-in [:args] conj user-id)
-                 (update-in [:query :in] conj '?u)
-                 (update-in [:query :where] conj '[?l :log/user ?u]))
-     (nil? user-id) (update-in [:args] conj log-pull-pattern)
+     (and user-id
+          (nil? timesheet-id)) (-> (update-in [:args] conj log-user-pull-pattern)
+                                   (update-in [:args] conj user-id)
+                                   (update-in [:query :in] conj '?u)
+                                   (update-in [:query :where] conj '[?l :log/user ?u]))
+     (and (nil? user-id)
+          (nil? timesheet-id)) (update-in [:args] conj log-pull-pattern)
+     (and (nil? user-id)
+          timesheet-id) (-> (update-in [:args] conj log-ts-pull-pattern)
+                            (update-in [:args] conj timesheet-id)
+                            (update-in [:query :in] conj '?t)
+                            (update-in [:query :where] conj '[?t :timesheet/logs ?l]))
+     (and user-id
+          timesheet-id) (-> (update-in [:args] conj log-user-ts-pull-pattern)
+                            (update-in [:args] conj user-id)
+                            (update-in [:query :in] conj '?u)
+                            (update-in [:query :where] conj '[?l :log/user ?u])
+                            (update-in [:args] conj timesheet-id)
+                            (update-in [:query :in] conj '?t)
+                            (update-in [:query :where] conj '[?t :timesheet/logs ?l]))
      true (update-in [:query :where] conj '[?l :log/project _]))))
 
 (defn list-logs
   ([]
    (list-logs nil))
-  ([user-id]
+  ([{:keys [user-id timesheet-id]}]
    (-> @conn
-       (build-log-query {:user-id user-id})
+       (build-log-query {:user-id user-id
+                         :timesheet-id timesheet-id})
        d/q)))
 
-(def timesheet-user-pull-pattern '[:db/id :timesheet/start-date :timesheet/end-date :timesheet/approved? :timesheet/submitted? {:timesheet/supervisor [:db/id :user/ref]}])
+(defn create-timesheet [new-timesheet]
+  (let [tx [(assoc new-timesheet
+                   :db/id -1
+                   :timesheet/approved? false
+                   :timesheet/submitted? false)]
+        {:keys [tempids]} (d/transact conn tx)]
+    (get tempids -1)))
 
-(def timesheet-pull-pattern '[:db/id :timesheet/start-date :timesheet/end-date :timesheet/approved? :timesheet/submitted? {:timesheet/user [:db/id :user/ref]}])
+(def timesheet-user-pull-pattern '[:db/id :timesheet/start-date :timesheet/end-date :timesheet/approved? :timesheet/submitted? {:timesheet/supervisor [:db/id :user/ref]
+                                                                                                                                :timesheet/logs [:db/id :log/effort]}])
+
+(def timesheet-pull-pattern '[:db/id :timesheet/start-date :timesheet/end-date :timesheet/approved? :timesheet/submitted? {:timesheet/user [:db/id :user/ref]
+                                                                                                                           :timesheet/logs [:db/id :log/effort]}])
 
 (defn build-timesheet-query
   ([db]
@@ -171,14 +210,13 @@
   ([user-id]
    (let [db @conn]
      (->> (build-timesheet-query db {:user-id user-id})
-          d/q
-          (mapv (fn [{:keys [:timesheet/start-date :timesheet/end-date] :as ts}]
-                  (let [logs (->> (build-log-query db
-                                                   {:user-id user-id
-                                                    :start-date start-date
-                                                    :end-date end-date})
-                                  d/q)]
-                    (merge ts {:timesheet/logs logs}))))))))
+          d/q))))
+
+(defn get-timesheet [id]
+  (d/pull @conn timesheet-user-pull-pattern id))
+
+(defn touch-timesheet [id]
+  (d/entity @conn id))
 
 (comment
 
@@ -189,9 +227,9 @@
 
   (build-log-query @conn {})
 
-  (create-timesheets {:timesheet/year 2020 :timesheet/supervisor 29})
-
   (list-timesheets)
+
+  (get-timesheet 38)
 
   (list-logs))
 

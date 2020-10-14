@@ -58,8 +58,7 @@
   (let [backend (session-backend)]
     (-> handler
         (wrap-authorization backend)
-        (wrap-authentication backend)
-        )))
+        (wrap-authentication backend))))
 
 (defn wrap-base [handler]
   (-> ((:middleware defaults) handler)

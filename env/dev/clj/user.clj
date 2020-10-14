@@ -39,4 +39,8 @@
 
   (reset-db)
 
-  (db/list-users))
+  (db/list-users)
+
+  (db/list-logs)
+
+  (db/list-timesheets))

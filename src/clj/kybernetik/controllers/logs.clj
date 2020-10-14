@@ -5,25 +5,33 @@
    [kybernetik.utils :as u]
    [ring.util.response :as rur]))
 
-(defn- get-log-attrs [identity]
-  (let [projects (db/list-user-projects [:user/email identity])
-        timesheets (db/list-timesheets [:user/email identity])]
-    {:log/date {:type :date
-                :placeholder "Date"}
-     :log/project {:type :selection
-                   :placeholder (mapv
-                                 (fn [{:keys [:db/id :project/ref]}]
-                                   [id ref])
-                                 projects)}
-     :log/timesheet {:type :selection
-                     :placeholder (mapv
-                                   (fn [{:keys [:db/id :timesheet/start-date]}]
-                                     [id (-> start-date u/date->month-str)])
-                                   timesheets)}
-     :log/effort {:type :float
-                  :placeholder "Effort"}
-     :log/note {:type :string
-                :placeholder "Note"}}))
+(defn- get-log-attrs [{:keys [email timesheet-id]}]
+  (let [projects (db/list-user-projects [:user/email email])
+        timesheets (db/list-timesheets [:user/email email])]
+    (merge
+     {:log/date {:type :date
+                 :placeholder "Date"}
+      :log/project {:type :selection
+                    :placeholder (mapv
+                                  (fn [{:keys [:db/id :project/ref]}]
+                                    [id ref])
+                                  projects)}
+      :log/effort {:type :float
+                   :placeholder "Effort"}
+      :log/note {:type :string
+                 :placeholder "Note"}}
+     (when-not timesheet-id
+       {:log/timesheet {:type :selection
+                        :placeholder (mapv
+                                      (fn [{:keys [:db/id :timesheet/start-date]}]
+                                        [id (-> start-date u/date->month-str)])
+                                      timesheets)}})
+     (when timesheet-id
+       (let [{:keys [:timesheet/start-date :timesheet/end-date]} (db/get-timesheet timesheet-id)]
+         {:log/date {:type :date
+                     :placeholder "Date"
+                     :min (u/date->str start-date)
+                     :max (u/date->str end-date)}})))))
 
 (defn index [{{:keys [identity]} :session :keys [flash] :as request}]
   (let [attrs [:db/id
@@ -38,7 +46,7 @@
                                :log/project (let [{:keys [:project/ref :db/id]} (:log/project log)]
                                               [(str "/projects/" id "/show") ref])
                                :log/date (-> log :log/date u/date->str)
-                               :log/timesheet (if-let [{:keys [:timesheet/start-date :db/id]} (:log/timesheet log)]
+                               :log/timesheet (if-let [{:keys [:timesheet/start-date :db/id]} (:timesheet/_logs log)]
                                                 [(str "/timesheets/" id "/show") (-> start-date u/date->month-str)]
                                                 "-")
                                (a log))) attrs))
@@ -55,13 +63,19 @@
         {:message {:text flash
                    :type :info}})))))
 
-(defn create [{{:keys [identity]} :session {:keys [project note date effort timesheet]} :params}]
-  (let [new-log {:log/project (Integer/parseInt project)
+(defn create [{{:keys [identity]} :session
+               query :query-params
+               {:keys [project note date effort timesheet-id]} :params}]
+  (let [tid-raw (get query "tid")
+        tid (when tid-raw (Integer/parseInt tid-raw))
+        new-log {:log/project (Integer/parseInt project)
                  :log/date (if date
                              (u/str->date date)
                              (java.util.Date.))
                  :log/note note
-                 :log/timesheet (Integer/parseInt timesheet)
+                 :log/timesheet (if tid
+                                  tid
+                                  (Integer/parseInt timesheet-id))
                  :log/user [:user/email identity]
                  :log/effort (Float/parseFloat effort)}]
     (try
@@ -70,13 +84,22 @@
       (catch Exception _
         (assoc (rur/redirect (str "/logs/new")) :flash "Log could not be created.")))))
 
-(defn new-log [{{:keys [identity]} :session :as request}]
-  (layout/render
-   request
-   (layout/new {:attrs (get-log-attrs identity)
-                :model "log"})
-   {:title "New Log"
-    :page "logs"}))
+(defn new-log [{{:keys [identity]} :session
+                query :query-params
+                :as request}]
+  (let [tid-raw (get query "tid")
+        tid (when tid-raw (Integer/parseInt tid-raw))
+        timesheet-date (when tid (-> (db/touch-timesheet tid) :timesheet/start-date u/date->month-str))]
+    (layout/render
+     request
+     (layout/new {:attrs (get-log-attrs {:email identity :timesheet-id tid})
+                  :model "log"
+                  :title-postfix (str " for Timesheet " timesheet-date)
+                  :submit-params {:tid tid}})
+     {:title (if tid
+               (str "New Log for Timesheet " timesheet-date)
+               "New Log")
+      :page "logs"})))
 
 (defn- get-log-entity [id]
   (-> (Integer/parseInt id)
@@ -102,15 +125,14 @@
 (defn edit [{{:keys [identity]} :session
              {:keys [id]} :path-params
              :as request}]
-  (let [log (db/get-log (Integer/parseInt id))]
-    (layout/render
-     request
-     (layout/edit {:attrs (get-log-attrs identity)
-                   :values (get-log-entity id)
-                   :id id
-                   :model "log"})
-     {:title "Edit Log"
-      :page "logs"})))
+  (layout/render
+   request
+   (layout/edit {:attrs (get-log-attrs identity)
+                 :values (get-log-entity id)
+                 :id id
+                 :model "log"})
+   {:title "Edit Log"
+    :page "logs"}))
 
 (defn delete-question [{{:keys [id]} :path-params flash :flash :as request}]
   (layout/render
@@ -125,15 +147,14 @@
     {:message {:text "Do you really want to delete the following Log?"
                :type :error}})))
 
-(defn delete [{{:keys [id]} :path-params :as request}]
+(defn delete [{{:keys [id]} :path-params}]
   (try
-    (do
-      (db/delete (Integer/parseInt id))
-      (assoc (rur/redirect "/logs") :flash "Log sucessfully deleted."))
-    (catch Exception e
+    (db/delete (Integer/parseInt id))
+    (assoc (rur/redirect "/logs") :flash "Log sucessfully deleted.")
+    (catch Exception _
       (assoc (rur/redirect "/logs") :flash "Log could not be deleted."))))
 
-(defn patch [{{:keys [id]} :path-params
+(defn patch [{{:keys [tid id]} :path-params
               {:keys [identity]} :session
               {:keys [_method project date note effort timesheet]} :params
               :as request}]

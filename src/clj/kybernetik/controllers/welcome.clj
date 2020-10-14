@@ -5,7 +5,6 @@
    [ring.util.response :as rur]
    [kybernetik.db.core :as db]))
 
-
 (defn index [request]
   (if (authenticated? request)
     (layout/render

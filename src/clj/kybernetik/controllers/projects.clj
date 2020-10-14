@@ -37,7 +37,6 @@
         {:message {:text flash
                    :type :info}})))))
 
-
 (defn create [{{:keys [title description members supervisor start-date end-date]} :params :as request}]
   (let [new-project {:project/title title
                      :project/description description
@@ -56,7 +55,7 @@
         (let [id (db/create-project new-project)]
           (assoc (rur/redirect "/projects") :flash "Project sucessfully created.")))
       (catch Exception e
-        (assoc (rur/redirect (str "/projects/new" )) :flash "Projects could not be created.")))))
+        (assoc (rur/redirect (str "/projects/new")) :flash "Projects could not be created.")))))
 
 (defn new-project [request]
   (let [users (db/list-users)]
@@ -84,7 +83,6 @@
      {:title "New Project"
       :page "projects"})))
 
-
 (defn show [{{:keys [id]} :path-params flash :flash :as request}]
   (layout/render
    request
@@ -93,7 +91,7 @@
      :id id
      :entity (-> (db/get-project (Integer/parseInt id))
                  (update-in [:project/supervisor] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
-                 (update-in [:project/members] (fn [mbrs] (mapv (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]) mbrs)) ))})
+                 (update-in [:project/members] (fn [mbrs] (mapv (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]) mbrs))))})
    (merge
     {:title "Show Project"
      :page "projects"}
@@ -116,7 +114,7 @@
                                                                  [id (str firstname " " lastname)])
                                                                users)}}
                    :values (update proj :project/supervisor (fn [{:keys [:db/id :user/firstname :user/lastname]}]
-                                                                 [id (str firstname " " lastname)]))
+                                                              [id (str firstname " " lastname)]))
                    :id id
                    :model "project"})
      {:title "Edit Project"
@@ -130,13 +128,12 @@
      :id id
      :entity (-> (db/get-project (Integer/parseInt id))
                  (update-in [:project/supervisor] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
-                 (update-in [:project/members] (fn [mbrs] (mapv (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]) mbrs)) ))})
+                 (update-in [:project/members] (fn [mbrs] (mapv (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]) mbrs))))})
    (merge
     {:title "Delete Project"
      :page "projects"}
     {:message {:text "Do you really want to delete the following Project?"
                :type :error}})))
-
 
 (defn delete [{{:keys [id]} :path-params :as request}]
   (try
@@ -152,12 +149,12 @@
   (if (= "delete" _method)
     (delete request)
     (let [updated-project (merge {:db/id (Integer/parseInt id)}
-                              (when title {:project/title title})
-                              (when description {:project/description description})
-                              (when members {:project/members (mapv #(Integer/parseInt %) members)})
-                              (when supervisor {:project/supervisor (Integer/parseInt supervisor)})
-                              (when start-date {:project/start-date start-date})
-                              (when end-date {:project/end-date end-date}))]
+                                 (when title {:project/title title})
+                                 (when description {:project/description description})
+                                 (when members {:project/members (mapv #(Integer/parseInt %) members)})
+                                 (when supervisor {:project/supervisor (Integer/parseInt supervisor)})
+                                 (when start-date {:project/start-date start-date})
+                                 (when end-date {:project/end-date end-date}))]
       (try
         (do
           (db/update-project updated-project)
