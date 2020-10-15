@@ -82,8 +82,12 @@
      request
      (layout/index {:model "timesheet"
                     :attrs attrs
-                    :rows  rows})
-
+                    :rows  rows
+                    :buttons {:submit {:icon :upload
+                                       :type :success}
+                              :edit {:icon :square-edit-outline}
+                              :delete {:icon :delete
+                                       :type :danger}}})
      (merge
       {:title "Listing Timesheets"
        :page "timesheets"}
@@ -136,7 +140,10 @@
       (layout/show
        {:model "timesheet"
         :id id
-        :entity (get-timesheet-entity id)})
+        :entity (get-timesheet-entity id)
+        :actions {:edit {}
+                  :submit {}
+                  :delete {:type :danger}}})
       (layout/index {:model "log"
                      :attrs log-attrs
                      :rows  log-rows
@@ -148,6 +155,51 @@
         {:message {:text flash
                    :type :info}})))))
 
+(defn submit-question [{{:keys [id]} :path-params
+                        {:keys [identity]} :session
+                        :as request}]
+  (let [log-attrs [:db/id
+                   :log/project
+                   :log/date
+                   :log/note
+                   :log/effort]
+        log-rows (mapv (fn [log]
+                         (mapv (fn [a]
+                                 (case a
+                                   :log/project (let [{:keys [:project/ref :db/id]} (:log/project log)]
+                                                  [(str "/projects/" id "/show") ref])
+                                   :log/date (-> log :log/date u/date->str)
+                                   (a log))) log-attrs))
+                       (sort-by :log/date (db/list-logs {:user-id [:user/email identity] :timesheet-id (Integer/parseInt id)})))]
+    (layout/render
+     request
+     (layout/container
+      (layout/question
+       {:model "timesheet"
+        :action :submit
+        :value "submit"
+        :type :info
+        :id id
+        :entity (get-timesheet-entity id)})
+      (layout/index {:model "log"
+                     :attrs log-attrs
+                     :rows  log-rows
+                     :actions {:new {:tid id}}}))
+     (merge
+      {:title "Submit Timesheet"
+       :page "timesheets"}
+      {:message {:text "Do you really want to submit the following Timesheet?"
+                 :type :info}}))))
+
+(defn submit [{{:keys [id]} :path-params}]
+  (try
+    (db/submit-timesheet (Integer/parseInt id))
+    (assoc (rur/redirect (str "/timesheets/" id "/show")) :flash "Timesheet sucessfully submitted. Your supervisor will have to approve it.")
+    (catch Exception _
+      (assoc (rur/redirect (str "/timesheet/" id "/show")) :flash "Timesheet could not be submitted."))))
+
+
+
 (defn delete-question [{{:keys [id]} :path-params :as request}]
   (layout/render
    request
@@ -158,7 +210,7 @@
    (merge
     {:title "Delete Timesheet"
      :page "timesheets"}
-    {:message {:text "Do you really want to delete the following Timesheet"
+    {:message {:text "Do you really want to delete the following Timesheet?"
                :type :error}})))
 
 (defn delete [{{:keys [id]} :path-params}]
@@ -171,8 +223,8 @@
 (defn patch [{{:keys [id]} :path-params
               {:keys [_method supervisor year month]} :params
               :as request}]
-  (if (= "delete" _method)
-    (delete request)
+  (case _method
+    "delete" (delete request)
     (let [updated-log (merge {:db/id (Integer/parseInt id)}
                              (when supervisor
                                {:timesheet/supervisor (Integer/parseInt supervisor)})

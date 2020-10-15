@@ -41,8 +41,7 @@
    ["/users/:id/patch" {:post kcu/patch}]])
 
 (def log-routes
-  [["/logs" {:get kcl/index
-             :post kcl/create}]
+  [["/logs" {:post kcl/create}]
    ["/logs/new" {:get {:query-params []
                        :handler kcl/new-log}}]
    ["/logs/:id/show" {:get kcl/show}]
@@ -59,7 +58,9 @@
                               :delete kct/delete}]
    ["/timesheets/:id/edit" {:get kct/edit}]
    ["/timesheets/:id/patch" {:post kct/patch}]
-   ["/timesheets/:id/show" {:get kct/show}]])
+   ["/timesheets/:id/show" {:get kct/show}]
+   ["/timesheets/:id/submit" {:get kct/submit-question
+                              :post kct/submit}]])
 
 (defn routes []
   (-> [""

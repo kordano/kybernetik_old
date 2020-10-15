@@ -91,6 +91,8 @@
      :id id
      :entity (-> (db/get-project (Integer/parseInt id))
                  (update-in [:project/supervisor] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
+                 (update-in [:project/start-date] u/date->str)
+                 (update-in [:project/end-date] u/date->str)
                  (update-in [:project/members] (fn [mbrs] (mapv (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]) mbrs))))})
    (merge
     {:title "Show Project"
@@ -123,8 +125,11 @@
 (defn delete-question [{{:keys [id]} :path-params flash :flash :as request}]
   (layout/render
    request
-   (layout/delete
+   (layout/question
     {:model "project"
+     :action :patch
+     :value "Delete"
+     :type :danger
      :id id
      :entity (-> (db/get-project (Integer/parseInt id))
                  (update-in [:project/supervisor] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
@@ -137,9 +142,8 @@
 
 (defn delete [{{:keys [id]} :path-params :as request}]
   (try
-    (do
-      (db/delete (Integer/parseInt id))
-      (assoc (rur/redirect "/projects") :flash "Project sucessfully deleted."))
+    (db/delete (Integer/parseInt id))
+    (assoc (rur/redirect "/projects") :flash "Project sucessfully deleted.")
     (catch Exception e
       (assoc (rur/redirect "/projects") :flash "Project could not be deleted."))))
 

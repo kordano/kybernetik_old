@@ -105,6 +105,7 @@
 
 (defn get-log [id]
   (d/pull @conn '[* {:log/user [:db/id :user/ref :user/firstname :user/lastname]
+                     :timesheet/_logs [:db/id :timesheet/start-date]
                      :log/project [:db/id :project/ref :project/title]}] id))
 
 (defn create-log [{:keys [:log/timesheet] :as new-log}]
@@ -217,6 +218,10 @@
 
 (defn touch-timesheet [id]
   (d/entity @conn id))
+
+(defn submit-timesheet [id]
+  (d/transact conn [{:db/id id
+                     :timesheet/submitted? true}]))
 
 (comment
 

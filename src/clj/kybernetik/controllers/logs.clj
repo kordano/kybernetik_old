@@ -3,6 +3,7 @@
    [kybernetik.layout :as layout]
    [kybernetik.db.core :as db]
    [kybernetik.utils :as u]
+   [clojure.set :as set]
    [ring.util.response :as rur]))
 
 (defn- get-log-attrs [{:keys [email timesheet-id]}]
@@ -81,7 +82,7 @@
     (try
       (db/create-log new-log)
       (assoc (rur/redirect (if tid
-                             (str "/timesheets/" tid "/show") 
+                             (str "/timesheets/" tid "/show")
                              "/logs")) :flash "Log sucessfully created.")
       (catch Exception _
         (assoc (rur/redirect (str "/logs/new")) :flash "Log could not be created.")))))
@@ -106,8 +107,10 @@
 (defn- get-log-entity [id]
   (-> (Integer/parseInt id)
       db/get-log
+      (set/rename-keys {:timesheet/_logs :log/timesheet})
       (update-in [:log/user] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
       (update-in [:log/project] (fn [{:keys [:db/id :project/ref]}] [(str "/projects/" id "/show") ref]))
+      (update-in [:log/timesheet] (fn [{:keys [:db/id :timesheet/start-date]}] [(str "/timesheets/" id "/show") (u/date->month-str start-date)]))
       (update-in [:log/date] u/date->str)))
 
 (defn show [{{:keys [id]} :path-params flash :flash :as request}]
@@ -142,6 +145,9 @@
    (layout/delete
     {:model "log"
      :id id
+     :action :patch
+     :value "Delete"
+     :type :danger
      :entity (get-log-entity id)})
    (merge
     {:title "Delete Log"
