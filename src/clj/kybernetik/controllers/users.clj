@@ -111,7 +111,7 @@
       {:message {:text flash
                  :type :info}}))))
 
-(defn delete [{{:keys [id]} :path-params :as request}]
+(defn delete [{{:keys [id]} :path-params}]
   (try
     (do
       (db/delete (Integer/parseInt id))

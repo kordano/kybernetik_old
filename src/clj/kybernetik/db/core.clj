@@ -224,6 +224,15 @@
 (defn get-timesheet [id]
   (d/pull @conn timesheet-user-pull-pattern id))
 
+(defn get-current-timesheet [id]
+  (d/q {:query '{:find [(pull ?t ?pull-pattern) .]
+                 :in [$ ?u ?d ?pull-pattern]
+                 :where [[?t :timesheet/start-date ?sd]
+                         [?t :timesheet/end-date ?ed]
+                         [(<= ?sd ?d)]
+                         [(< ?d ?ed)]]}
+        :args [@conn id (java.util.Date.) timesheet-user-pull-pattern]}))
+
 (defn touch-timesheet [id]
   (d/entity @conn id))
 
@@ -241,6 +250,16 @@
   (build-log-query @conn {})
 
   (list-timesheets)
+  
+  (get-current-timesheet 32)
+  
+  (d/q {:query '{:find [(pull ?t ?pull-pattern)]
+                 :in [$ ?u ?d ?pull-pattern]
+                 :where [[?t :timesheet/start-date ?sd]
+                         [?t :timesheet/end-date ?ed]
+                         [(<= ?sd ?d)]
+                         [(< ?d ?ed)]]}
+        :args [@conn 32 (java.util.Date.) timesheet-user-pull-pattern]})
 
   (get-timesheet 38)
 

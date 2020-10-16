@@ -11,13 +11,15 @@
         timesheets (db/list-timesheets [:user/email email])]
     (merge
      {:log/date {:type :date
+                 :value (u/date->str (java.util.Date.))
                  :placeholder "Date"}
       :log/project {:type :selection
                     :placeholder (mapv
                                   (fn [{:keys [:db/id :project/ref]}]
                                     [id ref])
                                   projects)}
-      :log/effort {:type :float
+      :log/effort {:type :number
+                   :step "0.5"
                    :placeholder "Effort"}
       :log/note {:type :string
                  :placeholder "Note"}}
@@ -31,6 +33,7 @@
        (let [{:keys [:timesheet/start-date :timesheet/end-date]} (db/get-timesheet timesheet-id)]
          {:log/date {:type :date
                      :placeholder "Date"
+                     :value (u/date->str (java.util.Date.))
                      :min (u/date->str start-date)
                      :max (u/date->str end-date)}})))))
 

@@ -193,7 +193,7 @@
     (details model "Listing" tbody action-items :thead thead :listing? true :back-btn? false)))
 
 (defn new [{:keys [attrs model submit-params title-postfix]}]
-  (let [tbody (for [[k {:keys [type placeholder min max]}] attrs]
+  (let [tbody (for [[k {:keys [type placeholder min max step value]}] attrs]
                 (let [attr (name k)]
                   [:tr
                    [:th k]
@@ -223,6 +223,8 @@
                                      :type type
                                      :min min
                                      :max max
+                                     :step step
+                                     :value value
                                      :placeholder placeholder}])]]))
         actions [[:input.card-footer-item.card-action-item {:type :submit :value "Save"}]]]
     [:form {:action (str "/" model "s" (create-query-str submit-params))
@@ -323,37 +325,39 @@
 
 
 
-(defn edit [{:keys [model attrs values id]}]
+(defn edit [{:keys [model attrs values id disabled]}]
   (let [tbody (for [[k {:keys [type placeholder]}] attrs]
                 (let [attr (name k)]
                   [:tr
                    [:th k]
                    [:td
-                    (case type
-                      :multi-selection [:div.select.is-mulitple
-                                        {:style "margin-bottom: 10rem !important;"}
-                                        [:select {:id attr
-                                                  :size "5"
-                                                  :multiple true
-                                                  :name attr}
-                                         (for [[oid oname] placeholder]
-                                           [:option {:value (if (keyword oid)
-                                                              (name oid)
-                                                              oid)
-                                                     :selected (= oid (k values))}
-                                            (name oname)])]]
-                      :selection [:div.select [:select {:id attr
-                                                        :name attr}
-                                               (for [[oid oname] placeholder]
-                                                 [:option {:value (if (keyword oid)
-                                                                    (name oid)
-                                                                    oid)
-                                                           :selected (= oid (first (k values)))} (name oname)])]]
-                      [:input.input {:id attr
-                                     :name attr
-                                     :type type
-                                     :value (k values)
-                                     :placeholder placeholder}])]]))
+                    (if (contains? disabled k)
+                      (str (k values))
+                      (case type
+                        :multi-selection [:div.select.is-mulitple
+                                          {:style "margin-bottom: 10rem !important;"}
+                                          [:select {:id attr
+                                                    :size "5"
+                                                    :multiple true
+                                                    :name attr}
+                                           (for [[oid oname] placeholder]
+                                             [:option {:value (if (keyword oid)
+                                                                (name oid)
+                                                                oid)
+                                                       :selected (= oid (k values))}
+                                              (name oname)])]]
+                        :selection [:div.select [:select {:id attr
+                                                          :name attr}
+                                                 (for [[oid oname] placeholder]
+                                                   [:option {:value (if (keyword oid)
+                                                                      (name oid)
+                                                                      oid)
+                                                             :selected (= oid (first (k values)))} (name oname)])]]
+                        [:input.input {:id attr
+                                       :name attr
+                                       :type type
+                                       :value (k values)
+                                       :placeholder placeholder}]))]]))
         actions [(card-footer-show model id)
                  [:input.card-footer-item.card-action-item {:type :submit :value "Save"}]]]
     [:form {:action (str "/" model "s/" id "/patch")
@@ -361,13 +365,18 @@
      (anti-forgery-field)
      (details model "Edit" tbody actions)]))
 
-(defn welcome [{:keys [session]}]
-  [:section.hero
-   [:div.hero-body
-    [:div.container
-     [:h1.title (if-let [id (:identity session)]
-                  (str "Welcome " id)
-                  (str "Not logged in."))]]]])
+(defn welcome [{:keys [timesheet-id current-hours target-hours]}]
+  [:div.columns
+   [:div.card.column.is-one-quarter
+    [:div.card-content
+     [:p.subtitle.has-text-centered "You logged"]
+     [:p.title.has-text-centered (str current-hours " hours")]
+     [:p.subtitle.has-text-centered "this month"]
+     [:progress.progress.is-primary {:value (str current-hours)
+                                     :max (str target-hours)}]]
+    [:footer.card-footer
+     [:p.card-footer-item
+      [:a {:href (str "/logs/new?tid=" timesheet-id)} "Create new log"]]]]])
 
 (defn sign-in []
   [:div.columns.is-centered
