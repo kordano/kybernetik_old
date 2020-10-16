@@ -10,7 +10,7 @@
     {:timesheet/year {:type :selection
                       :placeholder (mapv (fn [n] [(str n) (str n)]) (range 2020 2061))}
      :timesheet/month {:type :selection
-                       :placeholder (->> ["January"
+                       :placeholder (->>  ["January"
                                           "February"
                                           "March"
                                           "April"

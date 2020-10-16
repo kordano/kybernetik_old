@@ -5,6 +5,7 @@
    [selmer.filters :as filters]
    [hiccup.page :as hp]
    [clojure.string :as s]
+   [kybernetik.db.core :as db]
    [markdown.core :refer [md-to-html-string]]
    [ring.util.http-response :refer [content-type ok]]
    [ring.util.anti-forgery :refer [anti-forgery-field]]
@@ -38,23 +39,28 @@
    (str (s/capitalize model) "s")])
 
 (defn navbar [{:keys [page signed-in? identity]}]
-  [:nav.navbar.is-light
-   [:div.container
-    [:div.navbar-brand
-     [:a.navbar-item {:href "/"} "kybernetik"]]
-    [:div.navbar-menu
-     (when signed-in?
-       [:div.navbar-start
-        (navlink page "timesheet")
-        (navlink page "project")
-        (navlink page "user")])
-     [:div.navbar-end
-      (when signed-in?
-        [:p.navbar-item.has-text-grey.is-size-7 "Signed in as " identity])
-      [:div.buttons
-       (if signed-in?
-         [:a.button {:href "/sign-out"} "Sign out"]
-         [:a.button.is-primary {:href "/sign-in"} "Sign in"])]]]]])
+  (let [is-manager? (if signed-in?
+                      (db/user-is-manager? [:user/email identity])
+                      false)]
+    [:nav.navbar.is-light
+     [:div.container
+      [:div.navbar-brand
+       [:a.navbar-item {:href "/"} "kybernetik"]]
+      [:div.navbar-menu
+       (when signed-in?
+         [:div.navbar-start
+          (navlink page "timesheet")
+          (when is-manager?
+            (navlink page "project"))
+          (when is-manager?
+            (navlink page "user"))])
+       [:div.navbar-end
+        (when signed-in?
+          [:p.navbar-item.has-text-grey.is-size-7 "Signed in as " identity])
+        [:div.buttons
+         (if signed-in?
+           [:a.button {:href "/sign-out"} "Sign out"]
+           [:a.button.is-primary {:href "/sign-in"} "Sign in"])]]]]]))
 
 (defn base [{{:keys [identity]} :session} content & [{{:keys [type text] :as message} :message :as params}]]
   (hp/html5
@@ -224,9 +230,10 @@
      (anti-forgery-field)
      (details model "New" tbody actions :title-postfix title-postfix)]))
 
-(defn show [{:keys [model entity id actions]
+(defn show [{:keys [model entity id actions is-manager?]
              :or {actions {:edit {}
-                           :delete {:type :danger}}}}]
+                           :delete {:type :danger}}
+                  is-manager? true}}]
   (let [tbody (for [[k v] entity]
                 [:tr
                  [:th (name k)]
@@ -243,14 +250,15 @@
                                    [:span.icon.has-text-danger
                                     [:i.mdi.mdi-close-circle]])
                     :else v)]])
-        action-items (mapv
-                      (fn [[k {:keys [params type]}]]
-                        [:a {:href (str "/" model "s/" id "/" (name k) (create-query-str params))
-                             :class (case type
-                                      :danger "card-footer-item has-text-danger"
-                                      "card-footer-item")}
-                         (-> k name s/capitalize)])
-                      actions)]
+        action-items (if is-manager? (mapv
+                                      (fn [[k {:keys [params type]}]]
+                                        [:a {:href (str "/" model "s/" id "/" (name k) (create-query-str params))
+                                             :class (case type
+                                                      :danger "card-footer-item has-text-danger"
+                                                      "card-footer-item")}
+                                         (-> k name s/capitalize)])
+                                      actions)
+                         [])]
     (details model "Show" tbody action-items :title-postfix id)))
 
 (defn question [{:keys [model entity id action value type]}]

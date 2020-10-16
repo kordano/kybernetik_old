@@ -2,7 +2,7 @@
   (:require
    [kybernetik.middleware :as middleware]
    [kybernetik.layout :refer [error-page]]
-   [kybernetik.routes.home :refer [public-routes routes]]
+   [kybernetik.routes.core :refer [public-routes routes manager-routes]]
    [reitit.ring :as ring]
    [ring.middleware.content-type :refer [wrap-content-type]]
    [ring.middleware.webjars :refer [wrap-webjars]]
@@ -18,7 +18,8 @@
   (ring/ring-handler
    (ring/router
     [(public-routes)
-     (routes)])
+     (routes)
+     (manager-routes)])
    (ring/routes
     (ring/create-resource-handler
      {:path "/"})

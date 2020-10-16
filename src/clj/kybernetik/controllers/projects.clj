@@ -51,10 +51,9 @@
                                          (u/str->date end-date)
                                          (java.util.Date. 129 11 31 23 59 59))}]
     (try
-      (do
-        (let [id (db/create-project new-project)]
-          (assoc (rur/redirect "/projects") :flash "Project sucessfully created.")))
-      (catch Exception e
+      (db/create-project new-project)
+      (assoc (rur/redirect "/projects") :flash "Project sucessfully created.")
+      (catch Exception _
         (assoc (rur/redirect (str "/projects/new")) :flash "Projects could not be created.")))))
 
 (defn new-project [request]
@@ -83,12 +82,16 @@
      {:title "New Project"
       :page "projects"})))
 
-(defn show [{{:keys [id]} :path-params flash :flash :as request}]
+(defn show [{{:keys [id]} :path-params
+             {:keys [identity]} :session
+             flash :flash
+             :as request}]
   (layout/render
    request
    (layout/show
     {:model "project"
      :id id
+     :is-manager? (db/user-is-manager? [:user/email identity])
      :entity (-> (db/get-project (Integer/parseInt id))
                  (update-in [:project/supervisor] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
                  (update-in [:project/start-date] u/date->str)

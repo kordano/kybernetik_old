@@ -5,6 +5,8 @@
             [mount.core :as mount]
             [clojure.string :as s]))
 
+(def manager-roles #{:role/admin :role/manager})
+
 (defn init-db [cfg]
   (let [tx-0 (-> "resources/tx/tx-0.edn" slurp read-string)]
     (d/create-database (assoc cfg :initial-tx tx-0))
@@ -43,6 +45,9 @@
 
 (defn get-user [id]
   (d/pull @conn '[* {:user/role [:db/ident]}] id))
+
+(defn user-entity [id]
+  (d/entity @conn id))
 
 (defn create-user [{:keys [:user/firstname :user/lastname] :as new-user}]
   (let [{:keys [tempids]} (d/transact conn [(-> new-user
@@ -102,6 +107,9 @@
          [?e :project/ref _]
          [?e :project/members ?uid]]
        @conn user-id))
+
+(defn user-is-manager? [id]
+  (-> id user-entity :user/role :db/id user-entity :db/ident manager-roles boolean))
 
 (defn get-log [id]
   (d/pull @conn '[* {:log/user [:db/id :user/ref :user/firstname :user/lastname]

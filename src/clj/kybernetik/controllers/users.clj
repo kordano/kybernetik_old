@@ -91,12 +91,16 @@
      {:title "Edit User"
       :page "users"})))
 
-(defn show [{{:keys [id]} :path-params flash :flash :as request}]
+(defn show [{{:keys [id]} :path-params
+             {:keys [identity]} :session
+             flash :flash
+             :as request}]
   (layout/render
    request
    (layout/show
     {:model "user"
      :id id
+     :is-manager? (db/user-is-manager? [:user/email identity])
      :entity (-> (db/get-user (Integer/parseInt id))
                  (dissoc :user/password)
                  (update-in [:user/role] :db/ident))})

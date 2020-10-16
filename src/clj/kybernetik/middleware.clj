@@ -1,24 +1,21 @@
 (ns kybernetik.middleware
   (:require
    [kybernetik.env :refer [defaults]]
-   [cheshire.generate :as cheshire]
-   [cognitect.transit :as transit]
    [clojure.tools.logging :as log]
    [kybernetik.layout :refer [error-page]]
+   [kybernetik.db.core :as db]
    [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
    [kybernetik.middleware.formats :as formats]
    [muuntaja.middleware :refer [wrap-format wrap-params]]
-   [kybernetik.config :refer [env]]
    [ring.middleware.flash :refer [wrap-flash]]
    [ring.adapter.undertow.middleware.session :refer [wrap-session]]
    [ring.middleware.defaults :refer [site-defaults wrap-defaults]]
    [buddy.auth.middleware :refer [wrap-authentication wrap-authorization]]
    [buddy.auth.accessrules :refer [restrict]]
    [buddy.auth :refer [authenticated?]]
-   [buddy.auth.backends.token :refer [jwe-backend]]
-   [buddy.auth.backends.session :refer [session-backend]])
-  (:import
-   [java.util Calendar Date]))
+   [buddy.auth.backends.session :refer [session-backend]]))
+
+(def manager-roles #{:role/admin :role/manager})
 
 (defn wrap-internal-error [handler]
   (fn [req]
@@ -45,10 +42,17 @@
       ;; since they're not compatible with this middleware
       ((if (:websocket? request) handler wrapped) request))))
 
-(defn on-error [request response]
+(defn on-error [request _]
   (error-page
    {:status 403
     :title (str "Access to " (:uri request) " is not authorized")}))
+
+(defn wrap-manager [handler]
+  (restrict handler {:handler (fn [{:keys [identity]}]
+                                (if (boolean identity)
+                                  (db/user-is-manager? [:user/email identity])
+                                  false))
+                     :on-error on-error}))
 
 (defn wrap-restricted [handler]
   (restrict handler {:handler authenticated?

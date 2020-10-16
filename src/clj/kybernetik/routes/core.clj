@@ -1,4 +1,4 @@
-(ns kybernetik.routes.home
+(ns kybernetik.routes.core
   (:require
    [kybernetik.controllers.users :as kcu]
    [kybernetik.controllers.projects :as kcp]
@@ -24,7 +24,6 @@
   [["/projects" {:get kcp/index
                  :post kcp/create}]
    ["/projects/new" {:get kcp/new-project}]
-   ["/projects/:id/show" {:get kcp/show}]
    ["/projects/:id/edit" {:get kcp/edit}]
    ["/projects/:id/delete" {:get kcp/delete-question
                             :delete kcp/delete}]
@@ -34,7 +33,6 @@
   [["/users" {:get kcu/index
               :post kcu/create}]
    ["/users/new" {:get kcu/new-user}]
-   ["/users/:id/show" {:get kcu/show}]
    ["/users/:id/edit" {:get kcu/edit}]
    ["/users/:id/delete" {:get kcu/delete-question
                          :delete kcu/delete}]
@@ -50,6 +48,10 @@
                         :delete kcl/delete}]
    ["/logs/:id/patch" {:post kcl/patch}]])
 
+(def show-routes
+  [["/projects/:id/show" {:get kcp/show}]
+   ["/users/:id/show" {:get kcu/show}]])
+
 (def timesheet-routes
   [["/timesheets" {:post kct/create
                    :get kct/index}]
@@ -62,15 +64,24 @@
    ["/timesheets/:id/submit" {:get kct/submit-question
                               :post kct/submit}]])
 
+(defn manager-routes []
+  (-> [""
+       {:middleware [middleware/wrap-csrf
+                     middleware/wrap-formats
+                     middleware/wrap-manager]}]
+      (concat
+       project-routes
+       user-routes)
+      vec))
+
 (defn routes []
   (-> [""
        {:middleware [middleware/wrap-csrf
                      middleware/wrap-formats
                      middleware/wrap-restricted]}]
       (concat
-       project-routes
-       user-routes
        log-routes
+       show-routes
        timesheet-routes)
       vec))
 
