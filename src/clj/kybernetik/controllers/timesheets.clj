@@ -18,36 +18,30 @@
              "November"
              "December"])
 
-(defn- get-timesheet-attrs []
-  (let [users (db/list-users)]
-    {:timesheet/year {:type :selection
-                      :placeholder (mapv (fn [n] [(str n) (str n)]) (range 2020 2061))}
+(defn- get-timesheet-attrs [user-id]
+  (let [users (db/list-users)
+        current-timesheet-months (->> {:user-id user-id}
+                                     db/get-current-year-user-timesheet-dates
+                                     (map #(get months (.getMonth %)))
+                                     (into #{})) ]
+    {:timesheet/year {:type :value
+                      :value (str (+ 1900 (.getYear (java.util.Date.))))}
      :timesheet/month {:type :selection
-                       :placeholder (->>  ["January"
-                                          "February"
-                                          "March"
-                                          "April"
-                                          "May"
-                                          "June"
-                                          "July"
-                                          "August"
-                                          "September"
-                                          "October"
-                                          "November"
-                                          "December"]
-                                         (map-indexed (fn [idx itm]
-                                                        [(-> idx inc str) itm]))
-                                         vec)}
+                       :placeholder (->>  months
+                                          (map-indexed (fn [idx itm]
+                                                         [(-> idx inc str) itm]))
+                                          (remove (fn [[idx itm]] (current-timesheet-months itm)))
+                                          vec)}
      :timesheet/supervisor {:type :selection
                             :placeholder (mapv
-                                          (fn [{:keys [:db/id :user/ref]}]
-                                            [id ref])
+                                          (fn [{:keys [:db/id :user/firstname :user/lastname]}]
+                                            [id (str firstname " " lastname)])
                                           users)}}))
 
-(defn new-timesheet [request]
+(defn new-timesheet [{{:keys [identity]} :session :as request}]
   (layout/render
    request
-   (layout/new {:attrs (get-timesheet-attrs)
+   (layout/new {:attrs (get-timesheet-attrs [:user/email identity])
                 :model "timesheet"})
    {:title "New Timesheet"
     :page "timesheet"}))
@@ -57,8 +51,9 @@
     (str "0" m)
     (str m)))
 
-(defn create [{{:keys [identity]} :session {:keys [supervisor year month]} :params}]
+(defn create [{{:keys [identity]} :session {:keys [supervisor month]} :params}]
   (let [parsed-month (Integer/parseInt month)
+        year (+ 1900 (.getYear (java.util.Date.)))
         start-date (u/str->date (str year "-" (format-month parsed-month) "-01"))
         end-date (u/str->date (str year "-" (-> parsed-month inc format-month) "-01"))
         _ (.setTime end-date (- (.getTime end-date) 1000)) ;; dirty hack for handling Date arithmetic!
@@ -75,7 +70,7 @@
 (defn index [{{:keys [identity]} :session :keys [flash] :as request}]
   (let [user-id [:user/email identity]
         attrs [:db/id
-               :timesheet/start-date
+               :timesheet/date
                :timesheet/supervisor
                :timesheet/effort-sum
                :timesheet/approved?
@@ -85,12 +80,12 @@
                              (case a
                                :timesheet/supervisor (let [{:keys [:user/ref :db/id]} supervisor]
                                                        [(str "/users/" id "/show") ref])
-                               :timesheet/start-date (-> start-date u/date->month-str)
+                               :timesheet/date (-> start-date u/date->month-str)
                                :timesheet/effort-sum (->> logs
                                                           (map :log/effort)
                                                           (reduce +))
                                (a log))) attrs))
-                   (db/list-timesheets user-id))]
+                   (db/list-timesheets {:user-id user-id}))]
     (layout/render
      request
      (layout/index {:model "timesheet"
@@ -122,10 +117,11 @@
                                           (reduce +))))))
 
 (defn edit [{{:keys [id]} :path-params
+             {:keys [identity]} :session
              :as request}]
   (layout/render
    request
-   (layout/edit {:attrs (get-timesheet-attrs)
+   (layout/edit {:attrs (get-timesheet-attrs {:user-id identity})
                  :values (get-timesheet-entity id)
                  :disabled #{:timesheet/start-date :timesheet/year :timesheet/month}
                  :id id
@@ -245,25 +241,25 @@
                              (when supervisor
                                {:timesheet/supervisor (Integer/parseInt supervisor)})
                              #_(when (and year month)
-                               (let [parsed-month (Integer/parseInt month)]
-                                 {:timesheet/start-date (u/str->date (str year "-" (format-month parsed-month) "-01"))
-                                  :timesheet/end-date (u/str->date (str year "-" (-> parsed-month inc format-month) "-01"))}))
+                                 (let [parsed-month (Integer/parseInt month)]
+                                   {:timesheet/start-date (u/str->date (str year "-" (format-month parsed-month) "-01"))
+                                    :timesheet/end-date (u/str->date (str year "-" (-> parsed-month inc format-month) "-01"))}))
                              #_(when (and year (nil? month))
-                               (let [ts (db/touch-timesheet id)
-                                     date-year (- year 1900)
-                                     start-date (:timesheet/start-date ts)
-                                     _ (.setYear start-date date-year)
-                                     end-date (:timesheet/end-date ts)
-                                     _ (.setYear end-date date-year)]
-                                 {:timesheet/start-date start-date
-                                  :timesheet/end-date end-date}))
+                                 (let [ts (db/touch-timesheet id)
+                                       date-year (- year 1900)
+                                       start-date (:timesheet/start-date ts)
+                                       _ (.setYear start-date date-year)
+                                       end-date (:timesheet/end-date ts)
+                                       _ (.setYear end-date date-year)]
+                                   {:timesheet/start-date start-date
+                                    :timesheet/end-date end-date}))
                              #_(when (and (nil? year) month)
-                               (let [ts (db/touch-timesheet id)
-                                     start-year (+ 1900 (.getYear (:timesheet/start-date ts)))
-                                     end-year (+ 1900 (.getYear (:timesheet/end-date ts)))
-                                     parsed-month (Integer/parseInt month)]
-                                 {:timesheet/start-date (u/str->date (str start-year "-" (format-month parsed-month) "-01"))
-                                  :timesheet/end-date (u/str->date (str end-year "-" (-> parsed-month inc format-month) "-01"))})))]
+                                 (let [ts (db/touch-timesheet id)
+                                       start-year (+ 1900 (.getYear (:timesheet/start-date ts)))
+                                       end-year (+ 1900 (.getYear (:timesheet/end-date ts)))
+                                       parsed-month (Integer/parseInt month)]
+                                   {:timesheet/start-date (u/str->date (str start-year "-" (format-month parsed-month) "-01"))
+                                    :timesheet/end-date (u/str->date (str end-year "-" (-> parsed-month inc format-month) "-01"))})))]
       (try
         (db/update-log updated-log)
         (assoc (rur/redirect (str "/timesheets")) :flash "Timesheet sucessfully updated.")

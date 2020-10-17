@@ -43,4 +43,4 @@
 
   (db/list-logs)
 
-  (db/list-timesheets))
+  (db/list-timesheets {:user-id 32 :approved? true}))

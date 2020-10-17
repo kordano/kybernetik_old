@@ -11,6 +11,10 @@
       (layout/render
        request
        (layout/welcome {:current-hours (reduce + (map :log/effort logs))
+                        :current-project-count (->> logs
+                                                    (map :log/project)
+                                                    (into #{})
+                                                    count)
                         :timesheet-id id
                         :target-hours 160})))
     (rur/redirect "/sign-in")))

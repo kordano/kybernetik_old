@@ -3,7 +3,9 @@
             [buddy.hashers :as hashers]
             [kybernetik.config :refer [env]]
             [mount.core :as mount]
-            [clojure.string :as s]))
+            [kybernetik.utils :as u]
+            [clojure.string :as s])
+  (:import [java.util Date]))
 
 (def manager-roles #{:role/admin :role/manager})
 
@@ -200,7 +202,7 @@
 (defn build-timesheet-query
   ([db]
    (build-timesheet-query db {}))
-  ([db {:keys [user-id]}]
+  ([db {:keys [user-id approved?]}]
    (cond-> {:query '{:find [[(pull ?t ?pull-pattern) ...]]
                      :in [$ ?pull-pattern]
                      :where
@@ -211,14 +213,19 @@
                  (update-in [:args] conj user-id)
                  (update-in [:query :where] conj '[?t :timesheet/user ?u]))
      (nil? user-id) (update-in [:args] conj timesheet-pull-pattern)
+     (nil? approved?) (update-in [:query :where] conj  '[?t :timesheet/approved? false])
+     (not (nil? approved?)) (-> (update-in [:args] conj approved?)
+                                (update-in [:query :in] conj '?ap)
+                                (update-in [:query :where] conj '[?t :timesheet/approved? ?ap]))
      true (update-in [:query :where] conj '[?t :timesheet/start-date _]))))
 
 (defn list-timesheets
   ([]
-   (list-timesheets nil))
-  ([user-id]
+   (list-timesheets {}))
+  ([{:keys [user-id approved?]}]
    (let [db @conn]
-     (->> (build-timesheet-query db {:user-id user-id})
+     (->> (build-timesheet-query db {:user-id user-id
+                                     :approved? approved?})
           d/q))))
 
 (defn get-timesheet [id]
@@ -240,28 +247,32 @@
   (d/transact conn [{:db/id id
                      :timesheet/submitted? true}]))
 
+(defn get-current-year-user-timesheet-dates [{:keys [user-id]}]
+  (let [current-date (java.util.Date.)
+        start-date (u/precise-str->date (str (+ 1900 (.getYear current-date)) "-01-01-00:00:00"))
+        end-date (u/precise-str->date (str (+ 1900 (.getYear current-date)) "-12-31-23:59:59"))
+        query (cond-> {:query '{:find [[?d ...]]
+                                :in [$ ?sd ?ed]
+                                :where [[?t :timesheet/start-date ?d]
+                                        [(<= ?sd ?d)]
+                                        [(< ?d ?ed)]]}
+                       :args [@conn start-date end-date]}
+                user-id (-> (update-in [:query :in] conj '?u)
+                            (update-in [:query :where] conj '[?t :timesheet/user ?u])))]
+    (d/q query)))
+
 (comment
 
   (def db @conn)
-  (def user-id 30)
+  (def user-id 32)
 
+  (get-current-year-user-timesheet-dates {:user-id user-id})
+  
   (list-users)
 
   (build-log-query @conn {})
 
-  (list-timesheets)
-  
-  (get-current-timesheet 32)
-  
-  (d/q {:query '{:find [(pull ?t ?pull-pattern)]
-                 :in [$ ?u ?d ?pull-pattern]
-                 :where [[?t :timesheet/start-date ?sd]
-                         [?t :timesheet/end-date ?ed]
-                         [(<= ?sd ?d)]
-                         [(< ?d ?ed)]]}
-        :args [@conn 32 (java.util.Date.) timesheet-user-pull-pattern]})
-
-  (get-timesheet 38)
+  (build-timesheet-query @conn {:user-id 32 :approved? true})
 
   (list-logs))
 

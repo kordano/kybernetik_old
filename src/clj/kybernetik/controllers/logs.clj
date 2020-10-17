@@ -8,7 +8,7 @@
 
 (defn- get-log-attrs [{:keys [email timesheet-id]}]
   (let [projects (db/list-user-projects [:user/email email])
-        timesheets (db/list-timesheets [:user/email email])]
+        timesheets (db/list-timesheets {:user-id [:user/email email]})]
     (merge
      {:log/date {:type :date
                  :value (u/date->str (java.util.Date.))
