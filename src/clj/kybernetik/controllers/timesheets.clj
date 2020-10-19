@@ -21,9 +21,9 @@
 (defn- get-timesheet-attrs [user-id]
   (let [users (db/list-users)
         current-timesheet-months (->> {:user-id user-id}
-                                     db/get-current-year-user-timesheet-dates
-                                     (map #(get months (.getMonth %)))
-                                     (into #{})) ]
+                                      db/get-current-year-user-timesheet-dates
+                                      (map #(get months (.getMonth %)))
+                                      (into #{}))]
     {:timesheet/year {:type :value
                       :value (str (+ 1900 (.getYear (java.util.Date.))))}
      :timesheet/month {:type :selection
@@ -233,35 +233,15 @@
       (assoc (rur/redirect "/timesheets") :flash "Timesheet could not be deleted."))))
 
 (defn patch [{{:keys [id]} :path-params
-              {:keys [_method supervisor year month]} :params
+              {:keys [_method supervisor]} :params
               :as request}]
   (case _method
     "delete" (delete request)
-    (let [updated-log (merge {:db/id (Integer/parseInt id)}
-                             (when supervisor
-                               {:timesheet/supervisor (Integer/parseInt supervisor)})
-                             #_(when (and year month)
-                                 (let [parsed-month (Integer/parseInt month)]
-                                   {:timesheet/start-date (u/str->date (str year "-" (format-month parsed-month) "-01"))
-                                    :timesheet/end-date (u/str->date (str year "-" (-> parsed-month inc format-month) "-01"))}))
-                             #_(when (and year (nil? month))
-                                 (let [ts (db/touch-timesheet id)
-                                       date-year (- year 1900)
-                                       start-date (:timesheet/start-date ts)
-                                       _ (.setYear start-date date-year)
-                                       end-date (:timesheet/end-date ts)
-                                       _ (.setYear end-date date-year)]
-                                   {:timesheet/start-date start-date
-                                    :timesheet/end-date end-date}))
-                             #_(when (and (nil? year) month)
-                                 (let [ts (db/touch-timesheet id)
-                                       start-year (+ 1900 (.getYear (:timesheet/start-date ts)))
-                                       end-year (+ 1900 (.getYear (:timesheet/end-date ts)))
-                                       parsed-month (Integer/parseInt month)]
-                                   {:timesheet/start-date (u/str->date (str start-year "-" (format-month parsed-month) "-01"))
-                                    :timesheet/end-date (u/str->date (str end-year "-" (-> parsed-month inc format-month) "-01"))})))]
+    (let [updated-timesheet (merge {:db/id (Integer/parseInt id)}
+                                   (when supervisor
+                                     {:timesheet/supervisor (Integer/parseInt supervisor)}))]
       (try
-        (db/update-log updated-log)
+        (db/update-timesheet updated-timesheet)
         (assoc (rur/redirect (str "/timesheets")) :flash "Timesheet sucessfully updated.")
         (catch Exception _
           (assoc (rur/redirect "/timesheets") :flash "Timesheet could not be updated."))))))

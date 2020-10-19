@@ -5,6 +5,7 @@
    [kybernetik.controllers.logs :as kcl]
    [kybernetik.controllers.welcome :as kcw]
    [kybernetik.controllers.timesheets :as kct]
+   [kybernetik.controllers.vacations :as kcv]
    [kybernetik.middleware :as middleware]
    [ring.util.response]))
 
@@ -64,6 +65,10 @@
    ["/timesheets/:id/submit" {:get kct/submit-question
                               :post kct/submit}]])
 
+(def vacation-routes
+  [["/vacations"  {:post kcv/create-vacation}]
+   ["/vacations/new" {:get kcv/new-vacation}]])
+
 (defn manager-routes []
   (-> [""
        {:middleware [middleware/wrap-csrf
@@ -82,6 +87,7 @@
       (concat
        log-routes
        show-routes
-       timesheet-routes)
+       timesheet-routes
+       vacation-routes)
       vec))
 

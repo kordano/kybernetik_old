@@ -29,6 +29,17 @@
  {:db/ident :user/password
   :db/valueType :db.type/string
   :db/cardinality :db.cardinality/one}
+ {:db/ident :user/vacation-days
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "Vacation days per year"}
+ {:db/ident :user/working-hours
+  :db/valueType :db.type/long
+  :db/cardinality :db.cardinality/one
+  :db/doc "Working hours per month"}
+ {:db/ident :user/supervisor
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/one}
 
  {:db/ident :project/title
   :db/valueType :db.type/string
@@ -92,6 +103,20 @@
   :db/cardinality :db.cardinality/many
   :db/isComponent true}
 
+ {:db/ident :vacation/date
+  :db/valueType :db.type/instant
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :vacation/hours
+  :db/valueType :db.type/double
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :vacation/approved?
+  :db/valueType :db.type/boolean
+  :db/cardinality :db.cardinality/one}
+ {:db/ident :user/vacations
+  :db/valueType :db.type/ref
+  :db/cardinality :db.cardinality/many
+  :db/isComponent true}
+
  {:db/id -1
   :user/name "root"
   :user/email "root@kybernetik.io"
@@ -99,6 +124,7 @@
   :user/lastname "R00T"
   :user/password "bcrypt+sha512$8d230e4425a880cd9aec08c45295c2ef$12$74568287ea8342e4725c4d7028583f7061ceb80a69635b3d"
   :user/ref "TR"
+  :user/supervisor -1
   :user/role :role/admin}
  {:db/id -2
   :user/name "alice"
@@ -107,6 +133,7 @@
   :user/lastname "Bob"
   :user/password "bcrypt+sha512$8d230e4425a880cd9aec08c45295c2ef$12$74568287ea8342e4725c4d7028583f7061ceb80a69635b3d"
   :user/ref "AB"
+  :user/supervisor -1
   :user/role :role/employee}
 
  {:db/id -3
@@ -116,7 +143,7 @@
   :project/end-date #inst "2030-12-31T23:00:00.000-00:00"
   :project/ref "LI"
   :project/supervisor -1
-  :project/members -2}
+  :project/members [-1 -2]}
 
  {:db/id -4
   :timesheet/user -2
@@ -145,5 +172,21 @@
   :log/effort 8.0
   :log/note "Travel"}
 
+ {:db/id -8
+  :vacation/date  #inst "2020-10-19T23:00:00.000-00:00"
+  :vacation/hours 8.0
+  :vacation/approved? true}
+ {:db/id -9
+  :vacation/date  #inst "2020-10-19T23:00:00.000-00:00"
+  :vacation/hours 4.0
+  :vacation/approved? true}
+ {:db/id -10
+  :vacation/date  #inst "2020-10-26T23:00:00.000-00:00"
+  :vacation/hours 4.0
+  :vacation/approved? false}
+
  {:db/id -4
-  :timesheet/logs [-5 -6 -7]}]
+  :timesheet/logs [-5 -6 -7]}
+
+ {:db/id -2
+  :user/vacations [-8 -9 -10]}]

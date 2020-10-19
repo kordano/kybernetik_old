@@ -4,8 +4,8 @@
             [kybernetik.config :refer [env]]
             [mount.core :as mount]
             [kybernetik.utils :as u]
-            [clojure.string :as s])
-  (:import [java.util Date]))
+            [clojure.string :as s]
+            [clojure.set :as st]))
 
 (def manager-roles #{:role/admin :role/manager})
 
@@ -231,10 +231,14 @@
 (defn get-timesheet [id]
   (d/pull @conn timesheet-user-pull-pattern id))
 
+(defn update-timesheet [updated-timesheet]
+  (d/transact conn [updated-timesheet]))
+
 (defn get-current-timesheet [id]
   (d/q {:query '{:find [(pull ?t ?pull-pattern) .]
                  :in [$ ?u ?d ?pull-pattern]
-                 :where [[?t :timesheet/start-date ?sd]
+                 :where [[?t :timesheet/user ?u]
+                         [?t :timesheet/start-date ?sd]
                          [?t :timesheet/end-date ?ed]
                          [(<= ?sd ?d)]
                          [(< ?d ?ed)]]}
@@ -257,22 +261,58 @@
                                         [(<= ?sd ?d)]
                                         [(< ?d ?ed)]]}
                        :args [@conn start-date end-date]}
-                user-id (-> (update-in [:query :in] conj '?u)
+                user-id (-> (update-in [:args] conj user-id)
+                            (update-in [:query :in] conj '?u)
                             (update-in [:query :where] conj '[?t :timesheet/user ?u])))]
     (d/q query)))
+
+(defn create-vaction [new-vacation]
+  (let [{:keys [tempids]} (d/transact conn [(-> (assoc new-vacation :db/id -1 :vacation/approved? false)
+                                                (st/rename-keys {:vacation/user :user/_vacations}))
+])]
+    (get tempids -1)))
+
+(def vacation-user-pull-pattern
+  '[:db/id :vacation/date :vacation/approved? :vacation/hours])
+
+(def vacation-pull-pattern
+  (conj vacation-user-pull-pattern {:user/_vacations [:db/id :user/ref]}))
+
+(defn list-vacations
+  ([]
+   (list-vacations nil))
+  ([{:keys [user-id]}]
+   (let [query (-> {:query '{:find [[(pull ?v ?pull-pattern) ...]]
+                             :in [$ ?pull-pattern]
+                             :where [[?v :vacation/date _]]}
+                    :args [@conn]}
+                   (cond->
+                    (nil? user-id) (-> (update-in [:args] conj vacation-pull-pattern))
+                    (not (nil? user-id)) (-> (update-in [:args] conj vacation-user-pull-pattern)
+                                             (update-in [:args] conj user-id)
+                                             (update-in [:query :in] conj '?u)
+                                             (update-in [:query :where] conj '[?u :user/vacations ?v]))))]
+     (d/q query))))
+
+(defn get-vacation [id]
+  (d/pull @conn vacation-pull-pattern id))
+
+(defn update-vacation [updated-vacation]
+  (d/transact conn [updated-vacation]))
 
 (comment
 
   (def db @conn)
-  (def user-id 32)
-
-  (get-current-year-user-timesheet-dates {:user-id user-id})
   
+  (def user-id 39)
+
   (list-users)
-
-  (build-log-query @conn {})
-
-  (build-timesheet-query @conn {:user-id 32 :approved? true})
-
-  (list-logs))
+  
+  (create-vaction {:vacation/date (java.util.Date.)
+                   :vacation/hours 1.0
+                   :vacation/user 40})
+  
+  (get-current-year-user-timesheet-dates {:user-id 38})
+  
+  )
 

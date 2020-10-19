@@ -23,19 +23,18 @@
                    :placeholder "Effort"}
       :log/note {:type :string
                  :placeholder "Note"}}
-     (when-not timesheet-id
-       {:log/timesheet {:type :selection
-                        :placeholder (mapv
-                                      (fn [{:keys [:db/id :timesheet/start-date]}]
-                                        [id (-> start-date u/date->month-str)])
-                                      timesheets)}})
-     (when timesheet-id
+     (if timesheet-id
        (let [{:keys [:timesheet/start-date :timesheet/end-date]} (db/get-timesheet timesheet-id)]
          {:log/date {:type :date
                      :placeholder "Date"
                      :value (u/date->str (java.util.Date.))
                      :min (u/date->str start-date)
-                     :max (u/date->str end-date)}})))))
+                     :max (u/date->str end-date)}})
+       {:log/timesheet {:type :selection
+                        :placeholder (mapv
+                                      (fn [{:keys [:db/id :timesheet/start-date]}]
+                                        [id (-> start-date u/date->month-str)])
+                                      timesheets)}}))))
 
 (defn index [{{:keys [identity]} :session :keys [flash] :as request}]
   (let [attrs [:db/id
@@ -71,7 +70,7 @@
                query :query-params
                {:keys [project note date effort timesheet-id]} :params}]
   (let [tid-raw (get query "tid")
-        tid (when tid-raw (Integer/parseInt tid-raw))
+        tid (when (and tid-raw (seq tid-raw)) (Integer/parseInt tid-raw))
         new-log {:log/project (Integer/parseInt project)
                  :log/date (if date
                              (u/str->date date)
@@ -94,7 +93,7 @@
                 query :query-params
                 :as request}]
   (let [tid-raw (get query "tid")
-        tid (when tid-raw (Integer/parseInt tid-raw))
+        tid (when (and tid-raw (seq tid-raw)) (Integer/parseInt tid-raw))
         timesheet-date (when tid (-> (db/touch-timesheet tid) :timesheet/start-date u/date->month-str))]
     (layout/render
      request
@@ -107,14 +106,17 @@
                "New Log")
       :page "logs"})))
 
-(defn- get-log-entity [id]
+(defn get-log-entity [id]
   (-> (Integer/parseInt id)
       db/get-log
-      (set/rename-keys {:timesheet/_logs :log/timesheet})
+      (set/rename-keys {:timesheet/_logs :log/timesheet})      
+      (update-in [:log/date] u/date->str)))
+
+(defn- show-log-entity [id]
+  (-> (get-log-entity id)
       (update-in [:log/user] (fn [{:keys [:db/id :user/ref]}] [(str "/users/" id "/show") ref]))
       (update-in [:log/project] (fn [{:keys [:db/id :project/ref]}] [(str "/projects/" id "/show") ref]))
-      (update-in [:log/timesheet] (fn [{:keys [:db/id :timesheet/start-date]}] [(str "/timesheets/" id "/show") (u/date->month-str start-date)]))
-      (update-in [:log/date] u/date->str)))
+      (update-in [:log/timesheet] (fn [{:keys [:db/id :timesheet/start-date]}] [(str "/timesheets/" id "/show") (u/date->month-str start-date)]))))
 
 (defn show [{{:keys [id]} :path-params flash :flash :as request}]
   (layout/render
@@ -122,7 +124,8 @@
    (layout/show
     {:model "log"
      :id id
-     :entity (get-log-entity id)})
+     :entity (show-log-entity id)
+     })
    (merge
     {:title "Show Log"
      :page "logs"}
@@ -135,14 +138,15 @@
              :as request}]
   (layout/render
    request
-   (layout/edit {:attrs (get-log-attrs identity)
+   (layout/edit {:attrs (-> (get-log-attrs {:email identity})
+                            (assoc-in [:log/timesheet :type] :value))
                  :values (get-log-entity id)
                  :id id
                  :model "log"})
    {:title "Edit Log"
     :page "logs"}))
 
-(defn delete-question [{{:keys [id]} :path-params flash :flash :as request}]
+(defn delete-question [{{:keys [id]} :path-params :as request}]
   (layout/render
    request
    (layout/delete

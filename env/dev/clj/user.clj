@@ -42,5 +42,6 @@
   (db/list-users)
 
   (db/list-logs)
+  (db/list-vacations {:user-id 39})
 
   (db/list-timesheets {:user-id 32 :approved? true}))

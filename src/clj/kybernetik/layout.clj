@@ -354,6 +354,7 @@
                                                                       (name oid)
                                                                       oid)
                                                              :selected (= oid (first (k values)))} (name oname)])]]
+                        :value [:span.has-text-grey (k values)]
                         [:input.input {:id attr
                                        :name attr
                                        :type type
@@ -368,14 +369,21 @@
 
 (defn welcome [{:keys [timesheet-id current-hours]}]
   [:div.columns
-   [:div.card.column.is-one-quarter
-    [:div.card-content
-     [:p.subtitle.has-text-centered "You logged"]
-     [:p.title.has-text-centered (str current-hours " hours")]
-     [:p.subtitle.has-text-centered "this month"]]
-    [:footer.card-footer
-     [:p.card-footer-item
-      [:a {:href (str "/logs/new?tid=" timesheet-id)} "Create new log"]]]]])
+   (if timesheet-id
+     [:div.card.column.is-one-quarter
+      [:div.card-content
+       [:p.subtitle.has-text-centered "You logged"]
+       [:p.title.has-text-centered (str current-hours " hours")]
+       [:p.subtitle.has-text-centered "this month"]]
+      [:footer.card-footer
+       [:p.card-footer-item
+        [:a {:href (str "/logs/new?tid=" timesheet-id)} "Create new log"]]]]
+     [:div.card.column.is-one-quarter
+      [:div.card-content
+       [:p.subtitle.has-text-centered "You don't have a timesheet for this month"]]
+      [:footer.card-footer
+       [:p.card-footer-item
+        [:a {:href (str "/timesheets/new?")} "Create new timesheet"]]]])])
 
 (defn sign-in []
   [:div.columns.is-centered
