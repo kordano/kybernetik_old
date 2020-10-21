@@ -28,14 +28,10 @@
     :page "vacations"}))
 
 (defn create-vacation [{{:keys [identity]} :session
-                        {:keys [hours start-date end-date]} :params}]
-  (let [multiple? (and (seq start-date) (seq end-date))
-        new-vacation (if multiple?
-                       (mapv #() [])
-                       (cond-> {:vacation/user [:user/email identity]
-                                :vacation/date date}
-                         full (merge {:vacation/hours 8.0})
-                         (not full) (merge {:vacation/hours hours})))]
+                        {:keys [hours start-date end-date date]} :params}]
+  (let [new-vacation {:vacation/user [:user/email identity]
+                      :vacation/date date
+                      :vacation/hours (if (seq hours) hours 8.0)}]
     (try
       (db/create-vaction new-vacation)
       (assoc (rur/redirect "/vacations") :flash "Vacation sucessfully created.")
